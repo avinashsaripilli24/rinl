@@ -18,6 +18,61 @@ export const SCHEDULE = [
   { date: '16.10.2026', label: 'Day 2 e-auction, 11:00 to 19:00 plus auto-extensions' },
 ]
 
+/** Plain-language walkthrough of the e-auction, for first-time bidders. */
+export const PROCESS: { title: string; body: string }[] = [
+  { title: 'Register and pay the EMD', body: 'Sign up on eauction.enivida.com and pay the ₹2 lakh EMD online by 17:00 on the last date for your plot’s day. Without it you cannot bid.' },
+  { title: 'Practise on the mock auction', body: 'From 06.10.2026 the portal runs a mock e-auction. Use it to learn the bid screen, and to see exactly what it shows you about other bids.' },
+  { title: 'The auction opens at 11:00', body: 'Each plot starts at its reserve rate per sq.yd. Your first bid must be at least one step (₹1,000) above the reserve.' },
+  { title: 'Bids go up in ₹1,000 steps', body: 'Every new bid must beat the current highest rate. Whoever has the highest rate at that moment is H-1; the next is H-2, and so on.' },
+  { title: 'Closing at 19:00, unless someone bids late', body: 'A bid in the last 10 minutes pushes closing out by 10 minutes. This repeats until 10 minutes pass with no new bid, so the real end time can be well after 19:00.' },
+  { title: 'Whoever is H-1 at the close wins', body: 'Your price is your final rate × the plot area. The EMD of everyone else is refunded within 7 working days.' },
+  { title: 'Paperwork and fees (within 7 days)', body: 'Email Annex V–VIII, then post hard copies within 15 days. Pay the 0.1% processing fee + 18% GST within 7 working days of being H-1, or the EMD may be forfeited.' },
+  { title: 'Letter of Acceptance, then pay', body: 'RINL issues the LoA. Pay 10% within 7 days of it and the balance within 45 days (75 with 12% interest). Then comes the sale deed, and possession after that.' },
+]
+
+export const GLOSSARY: { term: string; meaning: string; example: string }[] = [
+  { term: 'H-1', meaning: 'Highest bidder: the person with the top bid on a plot right now. The one who is H-1 when bidding closes wins the plot.', example: 'A bids ₹1,05,000, B ₹1,04,000, C ₹1,02,000 → A is H-1.' },
+  { term: 'H-2, H-3…', meaning: 'Second highest, third highest and so on. They win nothing, and their EMD is refunded.', example: 'In the same bids, B is H-2 and C is H-3. If B now bids ₹1,06,000, B becomes H-1 and A drops to H-2.' },
+  { term: 'Reserve rate', meaning: 'RINL’s minimum rate per sq.yd. Bidding starts from here and can only go up.', example: 'Reserve ₹1,00,000/sq.yd → no bid below ₹1,01,000 is accepted.' },
+  { term: 'Bid step', meaning: 'The minimum increase: ₹1,000 per sq.yd. You can jump by several steps at once.', example: 'H-1 is ₹1,04,000 → you may bid ₹1,05,000 or jump to ₹1,10,000, but not ₹1,04,500.' },
+  { term: 'Bid value', meaning: 'Your rate per sq.yd × the plot area. Fees and instalments are worked out from this.', example: '₹1,05,000 × 250 sq.yd = ₹2.625 crore. One extra step on this plot adds ₹2.5 lakh.' },
+  { term: 'EMD', meaning: 'Earnest Money Deposit, ₹2 lakh. It lets you bid, counts towards the price if you win, and is refunded if you lose. One EMD = H-1 on one plot at a time.', example: 'Win a ₹2.06 crore plot → you owe ₹2.04 crore more. Lose → the ₹2 lakh comes back within 7 working days.' },
+  { term: 'Auto-extension', meaning: 'A bid in the final 10 minutes adds 10 more minutes, so nobody can snipe the plot at 18:59.', example: 'Bid at 18:58 → closing moves to 19:08. Another bid at 19:06 → 19:16, and so on.' },
+  { term: 'LoA', meaning: 'Letter of Acceptance: RINL’s formal confirmation to the H-1 bidder. The payment deadlines count from its date.', example: 'LoA on 1 Nov → 10% due by about 8 Nov, the balance about 45 days later (Sundays/holidays excluded).' },
+]
+
+/** More what-if scenarios, shown after the main worked example. */
+export const SCENARIOS: { title: string; steps: { time: string; text: string }[]; result: string }[] = [
+  {
+    title: 'You get outbid and stop',
+    steps: [
+      { time: '11:10', text: 'You bid ₹1,01,000 on a 150 sq.yd plot (reserve ₹1,00,000). You are H-1.' },
+      { time: '16:40', text: 'Someone bids ₹1,08,000. That is above your budget, so you stop. You are now H-2.' },
+      { time: '19:00', text: 'No bids in the last 10 minutes, so the auction closes on time.' },
+    ],
+    result: 'The other bidder wins. You pay nothing, and your ₹2 lakh EMD is refunded within 7 working days.',
+  },
+  {
+    title: 'One EMD, two plots you like',
+    steps: [
+      { time: '11:00', text: 'You paid one EMD (₹2 lakh). You bid on Plot A and become H-1.' },
+      { time: '12:00', text: 'You try to bid on Plot B. The portal blocks it: with one EMD you can be H-1 on only one plot.' },
+      { time: '15:20', text: 'Someone outbids you on Plot A. You are free again, and you bid on Plot B and become H-1 there.' },
+    ],
+    result: 'To stay H-1 on both plots at once, you need two EMDs (₹4 lakh) before the deadline.',
+  },
+  {
+    title: 'A bidding war runs past 19:00',
+    steps: [
+      { time: '18:52', text: 'You bid ₹1,10,000. Closing moves from 19:00 to 19:02.' },
+      { time: '19:01', text: 'The rival bids ₹1,11,000. Closing moves to 19:11.' },
+      { time: '19:09', text: 'You bid ₹1,12,000. Closing moves to 19:19.' },
+      { time: '19:19', text: 'The rival does not bid again.' },
+    ],
+    result: 'You win at ₹1,12,000/sq.yd. Decide your top rate before the day, because a war like this can go on for a long time.',
+  },
+]
+
 export const RULES: { title: string; body: string }[] = [
   { title: 'Bidding is per sq.yd', body: 'You bid a rate per sq.yd above the reserve rate, in steps of ₹1,000 (e.g. reserve ₹1,00,000 → ₹1,01,000, ₹1,02,000…). No decimals.' },
   { title: 'Auto-extension', body: 'Any bid in the last 10 minutes extends closing by 10 minutes, repeating until 10 minutes pass with no new bid.' },

@@ -3,7 +3,7 @@ import { Icon, Section } from '../components/ui'
 import { DOCS } from '../lib/docs'
 import { PLOTS } from '../lib/derive'
 import { fmtDate, parseDmy, short } from '../lib/format'
-import { BANK, CONTACTS, DATA_NOTES, LINKS, RFP, RULES, SCHEDULE } from '../lib/meta'
+import { BANK, CONTACTS, DATA_NOTES, GLOSSARY, LINKS, PROCESS, RFP, RULES, SCENARIOS, SCHEDULE } from '../lib/meta'
 
 const today = new Date()
 today.setHours(0, 0, 0, 0)
@@ -72,6 +72,70 @@ export default function Info() {
           })}
         </ol>
         <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">RINL may change, postpone or cancel any date. Check the portals for corrigenda.</p>
+      </Section>
+
+      <Section title="How the e-auction works">
+        <ol className="space-y-3">
+          {PROCESS.map((s, i) => (
+            <li key={s.title} className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-600 text-xs font-bold text-white">{i + 1}</span>
+              <div className="text-sm">
+                <div className="font-medium">{s.title}</div>
+                <p className="text-slate-600 dark:text-slate-300">{s.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+
+        <div className="mt-4 rounded-xl bg-slate-100 p-3 text-sm dark:bg-slate-800/60">
+          <div className="font-semibold">Example: a 200 sq.yd plot, reserve ₹1,00,000/sq.yd</div>
+          <ul className="mt-2 space-y-1.5 text-slate-600 dark:text-slate-300">
+            <li><span className="font-medium tabular-nums text-slate-900 dark:text-slate-100">11:05</span> · You bid ₹1,01,000. You are <b>H-1</b>.</li>
+            <li><span className="font-medium tabular-nums text-slate-900 dark:text-slate-100">14:30</span> · Someone bids ₹1,02,000. They are H-1; you drop to <b>H-2</b>.</li>
+            <li><span className="font-medium tabular-nums text-slate-900 dark:text-slate-100">18:55</span> · You bid ₹1,03,000. You are H-1 again, and because it is the last 10 minutes, closing moves to 19:05.</li>
+            <li><span className="font-medium tabular-nums text-slate-900 dark:text-slate-100">19:05</span> · No one bids again. You win at ₹1,03,000 × 200 = <b>₹2.06 crore</b>.</li>
+          </ul>
+          <p className="mt-2 text-slate-600 dark:text-slate-300">
+            You then owe a fee of ₹20,600 + ₹3,708 GST, 10% (₹20.6 lakh) after the LoA, and the balance of ₹1.83 crore (₹2.06 crore − 10% − the ₹2 lakh EMD) within 45 days. Stamp duty and registration come on top.
+          </p>
+        </div>
+
+        <h3 className="mt-4 text-sm font-semibold">More examples</h3>
+        <div className="mt-2 divide-y divide-slate-200 dark:divide-slate-800">
+          {SCENARIOS.map((sc) => (
+            <details key={sc.title} className="group py-2.5">
+              <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-2 text-sm font-medium">
+                {sc.title}
+                <Icon name="back" className="h-4 w-4 -rotate-90 text-slate-400 transition group-open:rotate-90" />
+              </summary>
+              <ul className="mt-2 space-y-1.5 text-sm text-slate-600 dark:text-slate-300">
+                {sc.steps.map((st) => (
+                  <li key={st.time}>
+                    <span className="font-medium tabular-nums text-slate-900 dark:text-slate-100">{st.time}</span> · {st.text}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-sm font-medium">{sc.result}</p>
+            </details>
+          ))}
+        </div>
+
+        <h3 className="mt-4 text-sm font-semibold">Terms you will see</h3>
+        <dl className="mt-2 space-y-2 text-sm">
+          {GLOSSARY.map((g) => (
+            <div key={g.term} className="grid grid-cols-[5.5rem_1fr] gap-2">
+              <dt className="font-semibold text-teal-700 dark:text-teal-400">{g.term}</dt>
+              <dd className="text-slate-600 dark:text-slate-300">
+                {g.meaning}
+                <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">e.g. {g.example}</span>
+              </dd>
+            </div>
+          ))}
+        </dl>
+
+        <p className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          <b>Can you see other people’s bids?</b> Portals like this usually show the current H-1 rate and whether you are H-1, and hide bidder names. The RFP does not say so explicitly, so confirm it on the mock auction (06.10.2026) or ask at the pre-bid meeting.
+        </p>
       </Section>
 
       <Section title="Rules that affect your money">
