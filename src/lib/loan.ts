@@ -14,6 +14,8 @@ export interface LoanProfile {
   netMonthlyIncome: number
   coApplicantIncome: number
   existingEmis: number
+  /** own cash available for the purchase (savings, gifts, sale of assets) */
+  savings: number
   foirPct: number
   processingFeePct: number
   scenario: Scenario
@@ -27,6 +29,7 @@ export const DEFAULT_LOAN: LoanProfile = {
   netMonthlyIncome: 0,
   coApplicantIncome: 0,
   existingEmis: 0,
+  savings: 0,
   foirPct: 50,
   processingFeePct: 0.5,
   scenario: 'bank-before-deed',

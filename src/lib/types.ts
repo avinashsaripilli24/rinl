@@ -1,7 +1,6 @@
 export type Dir = 'N' | 'S' | 'E' | 'W'
 export type Facing = 'NE' | 'E' | 'N' | 'NW' | 'SE' | 'W' | 'S' | 'SW'
-export type PlotType = 'LIG' | 'MIG' | 'Pump House' | 'Autonagar'
-export type Zone = 'HB Colony' | 'Autonagar'
+export type PlotType = 'LIG' | 'MIG' | 'Pump House'
 
 /** Shape of each record in src/data/plots.json (produced by scripts/extract.py). */
 export interface RawPlot {
@@ -41,7 +40,6 @@ export interface Tag {
 
 export interface Plot extends RawPlot {
   type: PlotType
-  zone: Zone
   roads: Road[]
   roadSides: number
   isCorner: boolean

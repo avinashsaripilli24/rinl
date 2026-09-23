@@ -1,6 +1,6 @@
 # RINL Plot Explorer
 
-A mobile-first app for exploring the 459 RINL plots in the Visakhapatnam e-auction (12 and 16 Oct 2026). The data comes from `../Main List.pdf` and `../extra details.pdf` (the RFP).
+A mobile-first app for exploring the 456 RINL plots in HB Colony in the Visakhapatnam e-auction (12 and 16 Oct 2026). The data comes from `../Main List.pdf` and `../extra details.pdf` (the RFP).
 
 ## Run
 

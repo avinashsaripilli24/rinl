@@ -1,4 +1,5 @@
-import { DIR_NAME } from '../lib/derive'
+import type { KeyboardEvent } from 'react'
+import { DIR_NAME, neighbourParts } from '../lib/derive'
 import type { Dir, Plot } from '../lib/types'
 
 const S = 320 // viewBox size
@@ -16,7 +17,8 @@ function short(s: string, n = 24) {
   return t.length > n ? t.slice(0, n - 1) + '…' : t
 }
 
-export default function SiteSketch({ plot }: { plot: Plot }) {
+/** `onPlot`, when given, makes neighbour labels that name an auction plot tappable. */
+export default function SiteSketch({ plot, onPlot }: { plot: Plot; onPlot?: (id: string) => void }) {
   const front = frontSide(plot)
   const horizontalFront = front === 'N' || front === 'S'
   const inner = S - BAND * 2 // 196
@@ -48,6 +50,7 @@ export default function SiteSketch({ plot }: { plot: Plot }) {
         {sides.map(({ d, rect, tx, ty, rot }) => {
           const r = roadBySide.get(d)
           const label = r ? r.label : short(plot.surroundings[d])
+          const link = !r && onPlot ? neighbourParts(plot.surroundings[d]).find((x) => x.id) : undefined
           return (
             <g key={d}>
               {r ? (
@@ -67,8 +70,17 @@ export default function SiteSketch({ plot }: { plot: Plot }) {
                 transform={rot ? `rotate(${rot} ${tx} ${ty})` : undefined}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                className={`text-[11px] ${r ? 'fill-slate-900 font-semibold dark:fill-white' : 'fill-slate-500 dark:fill-slate-400'}`}
+                className={`text-[11px] ${r ? 'fill-slate-900 font-semibold dark:fill-white' : link ? 'cursor-pointer fill-teal-700 font-semibold underline dark:fill-teal-400' : 'fill-slate-500 dark:fill-slate-400'}`}
                 paintOrder="stroke"
+                {...(link
+                  ? {
+                      role: 'button',
+                      tabIndex: 0,
+                      'aria-label': `Quick look at ${link.unit}`,
+                      onClick: () => onPlot!(link.id!),
+                      onKeyDown: (e: KeyboardEvent) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onPlot!(link.id!)),
+                    }
+                  : {})}
               >
                 {label}
               </text>
@@ -108,7 +120,7 @@ export default function SiteSketch({ plot }: { plot: Plot }) {
       </svg>
       <figcaption className="mt-2 text-center text-xs text-slate-500 dark:text-slate-400">
         Grey bands are roads, drawn thicker for wider roads. The thick teal edge is the main frontage
-        {front ? ` (${DIR_NAME[front]})` : ''}. Not to scale.
+        {front ? ` (${DIR_NAME[front]})` : ''}.{onPlot ? ' Tap a neighbouring plot for a quick look.' : ''} Not to scale.
       </figcaption>
     </figure>
   )

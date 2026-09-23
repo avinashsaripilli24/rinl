@@ -1,11 +1,14 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { useShortlist, useTheme } from '../hooks/useApp'
+import { openSettings, useShortlist, useTheme } from '../hooks/useApp'
+import PlotPreview from './PlotPreview'
+import SettingsSheet from './SettingsSheet'
 import { Icon, type IconName } from './ui'
 
 const TABS: { to: string; label: string; icon: IconName }[] = [
   { to: '/', label: 'Plots', icon: 'grid' },
   { to: '/top', label: 'Top picks', icon: 'trophy' },
   { to: '/compare', label: 'Compare', icon: 'columns' },
+  { to: '/insights', label: 'Insights', icon: 'chart' },
   { to: '/info', label: 'Info', icon: 'info' },
 ]
 
@@ -53,6 +56,14 @@ export default function Layout() {
           ))}
         </nav>
         <ThemeToggle />
+        <button
+          type="button"
+          onClick={() => openSettings()}
+          className="grid h-11 w-11 place-items-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+          aria-label="Settings: income, loan and scoring"
+        >
+          <Icon name="gear" />
+        </button>
       </header>
 
       <main className="flex-1 px-4 pb-24 pt-3 md:pb-10">
@@ -60,7 +71,7 @@ export default function Layout() {
       </main>
 
       <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur md:hidden dark:border-slate-800 dark:bg-slate-900/95">
-        <div className="mx-auto grid max-w-3xl grid-cols-4">
+        <div className="mx-auto grid max-w-3xl grid-cols-5">
           {TABS.map((t) => (
             <NavLink
               key={t.to}
@@ -79,6 +90,8 @@ export default function Layout() {
           ))}
         </div>
       </nav>
+      <PlotPreview />
+      <SettingsSheet />
     </div>
   )
 }

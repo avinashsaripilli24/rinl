@@ -4,7 +4,7 @@ import { EMPTY, FACING_OPTIONS, type Filters } from '../lib/search'
 import type { PlotType } from '../lib/types'
 import { Chip, Icon } from './ui'
 
-const TYPES: PlotType[] = ['LIG', 'MIG', 'Pump House', 'Autonagar']
+const TYPES: PlotType[] = ['LIG', 'MIG', 'Pump House']
 
 function Group({ title, children, hint }: { title: string; children: ReactNode; hint?: string }) {
   return (
@@ -107,16 +107,10 @@ export default function FilterSheet({ open, onClose, filters, onChange, count }:
             <Range min={f.rateMin} max={f.rateMax} onMin={(v) => set({ rateMin: v })} onMax={(v) => set({ rateMax: v })} unit="₹" step={1000} />
           </Group>
 
-          <Group title="Location">
-            {([['', 'All'], ['HB Colony', 'HB Colony, Maddilapalem'], ['Autonagar', 'Autonagar, Gajuwaka']] as const).map(([v, l]) => (
-              <Chip key={v} active={f.zone === v} onClick={() => set({ zone: v })}>{l}</Chip>
-            ))}
-          </Group>
-
           <Group title="Blocks" hint={f.blocks.length ? `(${f.blocks.length} selected)` : ''}>
             {BLOCKS.map((b) => (
               <Chip key={b} active={f.blocks.includes(b)} onClick={() => set({ blocks: toggleIn(f.blocks, b) })}>
-                {b.replace('Autonagar ', 'Auto ')}
+                {b}
               </Chip>
             ))}
           </Group>

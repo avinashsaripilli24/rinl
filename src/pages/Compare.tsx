@@ -1,61 +1,37 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import PlotCard from '../components/PlotCard'
-import { Chip, FacingBadge, Icon, Section } from '../components/ui'
-import { useLoanProfile, useShortlist, useStampPct, useWeights } from '../hooks/useApp'
+import PlotCard, { previewClick } from '../components/PlotCard'
+import { WEIGHT_LABELS } from '../components/SettingsSheet'
+import { Chip, FacingBadge, Icon, LoadMore } from '../components/ui'
+import { openSettings, useLoanProfile, usePreview, useShortlist, useStampPct, useWeights } from '../hooks/useApp'
+import { useInfinite } from '../hooks/useInfinite'
 import { PLOTS, PLOT_BY_ID, score } from '../lib/derive'
 import { blockLabel, num, short } from '../lib/format'
 import { ownFundsAt } from '../lib/loan'
 import { EMD } from '../lib/money'
 import type { Plot, PlotType, Weights } from '../lib/types'
 
-const WEIGHT_LABELS: Record<keyof Weights, string> = {
-  vastu: 'Vastu facing',
-  corner: 'Corner / open sides',
-  road: 'Road width',
-  value: 'Value (lower ₹/sq.yd)',
-  area: 'Bigger area',
-  features: 'Features vs concerns',
-}
-
 function WeightsPanel() {
-  const { weights, setWeights, reset } = useWeights()
-  const [open, setOpen] = useState(false)
+  const { weights } = useWeights()
   const total = Object.values(weights).reduce((a, b) => a + b, 0) || 1
   return (
-    <Section
-      title="What matters to you"
-      right={
-        <button onClick={() => setOpen((o) => !o)} className="h-9 rounded-lg px-2 text-sm font-semibold text-teal-700 dark:text-teal-400" aria-expanded={open}>
-          {open ? 'Hide' : 'Adjust weights'}
-        </button>
-      }
+    <button
+      type="button"
+      onClick={() => openSettings('weights')}
+      className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm dark:border-slate-800 dark:bg-slate-900"
     >
-      {!open ? (
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+      <Icon name="sliders" className="h-5 w-5 shrink-0 text-teal-600" />
+      <span className="min-w-0 flex-1 text-sm">
+        <span className="block font-semibold">What matters to you</span>
+        <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
           {(Object.keys(weights) as (keyof Weights)[])
             .filter((k) => weights[k] > 0)
             .map((k) => `${WEIGHT_LABELS[k]} ${Math.round((weights[k] / total) * 100)}%`)
             .join(' · ')}
-        </p>
-      ) : (
-        <div className="space-y-3">
-          {(Object.keys(WEIGHT_LABELS) as (keyof Weights)[]).map((k) => (
-            <label key={k} className="block">
-              <div className="flex justify-between text-sm">
-                <span>{WEIGHT_LABELS[k]}</span>
-                <span className="tabular-nums text-slate-500">{Math.round((weights[k] / total) * 100)}%</span>
-              </div>
-              <input type="range" min={0} max={50} value={weights[k]} onChange={(e) => setWeights({ ...weights, [k]: Number(e.target.value) })} className="h-8 w-full" />
-            </label>
-          ))}
-          <button onClick={reset} className="text-sm font-semibold text-teal-700 underline dark:text-teal-400">Reset to defaults</button>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Vastu uses your order NE › E › N › NW › SE › W › S. Value and area are compared within the same zone (HB Colony or Autonagar).
-          </p>
-        </div>
-      )}
-    </Section>
+        </span>
+      </span>
+      <span className="text-sm font-semibold text-teal-700 dark:text-teal-400">Adjust</span>
+    </button>
   )
 }
 
@@ -68,6 +44,7 @@ const bestBy = (fn: (p: Plot) => number, dir: 'max' | 'min') => (ps: Plot[]) => 
 
 function ShortlistTable({ plots, weights, stampPct }: { plots: Plot[]; weights: Weights; stampPct: number }) {
   const { toggle } = useShortlist()
+  const { open } = usePreview()
   const { profile } = useLoanProfile()
   const loan = (p: Plot) => ownFundsAt(p, p.rate, stampPct, profile).lp
   const cash = (p: Plot) => p.reservePrice * (1 + stampPct / 100 + 0.001 * 1.18)
@@ -106,7 +83,7 @@ function ShortlistTable({ plots, weights, stampPct }: { plots: Plot[]; weights: 
             {plots.map((p) => (
               <th key={p.id} className="min-w-[9.5rem] max-w-[12rem] border-b border-slate-200 px-2 pb-2 text-left align-bottom dark:border-slate-800">
                 <div className="flex items-start justify-between gap-1">
-                  <Link to={`/plot/${p.id}`} className="text-base font-bold text-teal-700 underline-offset-2 hover:underline dark:text-teal-400">{p.unit}</Link>
+                  <Link to={`/plot/${p.id}`} onClick={previewClick(() => open(p.id))} className="text-base font-bold text-teal-700 underline-offset-2 hover:underline dark:text-teal-400">{p.unit}</Link>
                   <button onClick={() => toggle(p.id)} className="grid h-8 w-8 place-items-center rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label={`Remove ${p.unit}`}>
                     <Icon name="x" className="h-4 w-4" />
                   </button>
@@ -155,7 +132,6 @@ export default function Compare() {
   const [mode, setMode] = useState<'shortlist' | 'rank'>(ids.length ? 'shortlist' : 'rank')
   const [day, setDay] = useState<'' | 1 | 2>('')
   const [type, setType] = useState<PlotType | ''>('')
-  const [limit, setLimit] = useState(30)
   const shortlisted = ids.map((id) => PLOT_BY_ID.get(id)).filter((p): p is Plot => !!p)
 
   const ranked = useMemo(
@@ -165,6 +141,7 @@ export default function Compare() {
         .sort((a, b) => b.s - a.s || a.p.rate - b.p.rate),
     [weights, day, type],
   )
+  const { limit, sentinel, more } = useInfinite(ranked.length, 30, `${day}|${type}|${mode}`)
 
   return (
     <div className="space-y-4">
@@ -213,7 +190,7 @@ export default function Compare() {
             <Chip active={day === 1} onClick={() => setDay(1)}>12 Oct</Chip>
             <Chip active={day === 2} onClick={() => setDay(2)}>16 Oct</Chip>
             <span className="mx-1 w-px shrink-0 bg-slate-300 dark:bg-slate-700" />
-            {(['', 'LIG', 'MIG', 'Pump House', 'Autonagar'] as const).map((t) => (
+            {(['', 'LIG', 'MIG', 'Pump House'] as const).map((t) => (
               <Chip key={t || 'all'} active={type === t} onClick={() => setType(t)}>{t || 'All types'}</Chip>
             ))}
           </div>
@@ -224,11 +201,7 @@ export default function Compare() {
               </li>
             ))}
           </ol>
-          {ranked.length > limit ? (
-            <button onClick={() => setLimit((l) => l + 60)} className="h-12 w-full rounded-xl border border-slate-300 font-semibold dark:border-slate-700">
-              Show more ({ranked.length - limit} left)
-            </button>
-          ) : null}
+          <LoadMore sentinel={sentinel} more={more} left={ranked.length - limit} />
         </>
       )}
     </div>

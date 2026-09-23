@@ -3,8 +3,8 @@
 export const RFP = {
   number: 'NLMC/Legal/Auction/RFP-2026',
   dated: '31.08.2026',
-  location: 'HB Colony-Maddilapalem and Auto Nagar-Gajuwaka, Visakhapatnam',
-  totalPlots: 459,
+  location: 'HB Colony-Maddilapalem, Visakhapatnam',
+  totalPlots: 456,
 }
 
 export const SCHEDULE = [

@@ -67,8 +67,7 @@ export const isCornerSides = (sides: Dir[]) => sides.some((a) => sides.some((b) 
 function typeOf(unit: string): Plot['type'] {
   if (unit.startsWith('LIG')) return 'LIG'
   if (unit.startsWith('MIG')) return 'MIG'
-  if (unit.startsWith('Pump')) return 'Pump House'
-  return 'Autonagar'
+  return 'Pump House'
 }
 
 function tagsOf(p: RawPlot, roads: Road[], type: Plot['type']): Tag[] {
@@ -90,7 +89,6 @@ function tagsOf(p: RawPlot, roads: Road[], type: Plot['type']): Tag[] {
   if (roads.some((r) => r.width != null && r.width < 24) && /narrow/i.test(all + p.approach)) t.push({ key: 'narrow', kind: 'bad', label: 'Narrow road on one side' })
   else if (max > 0 && max <= 24) t.push({ key: 'narrow', kind: 'bad', label: "Only 24' (or narrower) road access" })
   if (roads.some((r) => r.width == null)) t.push({ key: 'unknownroad', kind: 'info', label: 'Road width not stated on a side' })
-  if (/industrial/i.test(p.landUse)) t.push({ key: 'industrial', kind: 'bad', label: 'Industrial land use (VMRDA Master Plan 2041)' })
   if (type === 'LIG' && p.area < 135) t.push({ key: 'small', kind: 'bad', label: 'Smaller than typical LIG' })
   if (p.conflicts.length) t.push({ key: 'conflict', kind: 'bad', label: 'PDFs disagree, verify' })
   const approachSides = [...p.approach.matchAll(/on\s+(north|south|east|west)/gi)].map((m) => DIR_WORD[m[1].toLowerCase()])
@@ -127,7 +125,6 @@ function derive(p: RawPlot): Plot {
   return {
     ...p,
     type,
-    zone: type === 'Autonagar' ? 'Autonagar' : 'HB Colony',
     roads,
     roadSides: roads.length,
     isCorner: isCornerSides(roads.map((r) => r.side)),
@@ -147,6 +144,41 @@ function derive(p: RawPlot): Plot {
 
 export const PLOTS: Plot[] = (raw as RawPlot[]).map(derive)
 export const PLOT_BY_ID = new Map(PLOTS.map((p) => [p.id, p]))
+/**
+ * Splits a surroundings cell into text and plot references, e.g. "Plot LIG-359 & 360" →
+ * "Plot ", LIG-359, " & ", 360 (→ LIG-360). `id` is set only for plots in this auction.
+ */
+export function neighbourParts(text: string): { text: string; unit?: string; id?: string }[] {
+  const out: { text: string; unit?: string; id?: string }[] = []
+  let prefix: string | null = null
+  let last = 0
+  for (const m of text.matchAll(/(?:\b(LIG|MIG)-)?(\d+)(?![\d'])/g)) {
+    if (m[1]) prefix = m[1]
+    else if (!prefix) continue // a bare number before any LIG/MIG is not a plot
+    const unit = `${prefix}-${m[2]}`
+    const at = m.index ?? 0
+    if (at > last) out.push({ text: text.slice(last, at) })
+    const id = unit.toLowerCase()
+    out.push({ text: m[0], unit, id: PLOT_BY_ID.has(id) ? id : undefined })
+    last = at + m[0].length
+  }
+  if (last < text.length) out.push({ text: text.slice(last) })
+  return out
+}
+
+/** Auction plots named on each side of a plot, nearest-first by side. */
+export function neighbours(p: Plot): { side: Dir; id: string }[] {
+  const seen = new Set<string>()
+  const res: { side: Dir; id: string }[] = []
+  for (const side of ['N', 'E', 'S', 'W'] as Dir[])
+    for (const part of neighbourParts(p.surroundings[side]))
+      if (part.id && part.id !== p.id && !seen.has(part.id)) {
+        seen.add(part.id)
+        res.push({ side, id: part.id })
+      }
+  return res
+}
+
 export const BLOCKS: string[] = [...new Set(PLOTS.map((p) => p.block))].sort((a, b) => parseInt(a) - parseInt(b) || a.localeCompare(b, undefined, { numeric: true }))
 
 // ------------------------------------------------------------------ scoring
@@ -154,19 +186,15 @@ export const DEFAULT_WEIGHTS: Weights = { vastu: 30, corner: 20, road: 15, value
 
 const ROAD_SCORE = (w: number) => (w >= 60 ? 1 : w >= 40 ? 0.8 : w >= 30 ? 0.6 : w >= 24 ? 0.35 : w > 0 ? 0.2 : 0.3)
 
-const zoneStats = (() => {
-  const s: Record<string, { minRate: number; maxRate: number; minArea: number; maxArea: number }> = {}
-  for (const p of PLOTS) {
-    const z = (s[p.zone] ??= { minRate: Infinity, maxRate: -Infinity, minArea: Infinity, maxArea: -Infinity })
-    z.minRate = Math.min(z.minRate, p.rate); z.maxRate = Math.max(z.maxRate, p.rate)
-    z.minArea = Math.min(z.minArea, p.area); z.maxArea = Math.max(z.maxArea, p.area)
-  }
-  return s
-})()
+const z = {
+  minRate: Math.min(...PLOTS.map((p) => p.rate)),
+  maxRate: Math.max(...PLOTS.map((p) => p.rate)),
+  minArea: Math.min(...PLOTS.map((p) => p.area)),
+  maxArea: Math.max(...PLOTS.map((p) => p.area)),
+}
 
-/** Each factor on a 0–1 scale; value and area are relative to plots in the same zone. */
+/** Each factor on a 0–1 scale; value and area are relative to all plots. */
 export function factors(p: Plot): Record<keyof Weights, number> {
-  const z = zoneStats[p.zone]
   const good = p.tags.filter((t) => t.kind === 'good' && t.key !== 'corner' && t.key !== 'open3' && t.key !== 'frontback' && !t.key.startsWith('road')).length
   const bad = p.tags.filter((t) => t.kind === 'bad' && t.key !== 'narrow').length
   return {

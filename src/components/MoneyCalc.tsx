@@ -1,64 +1,28 @@
-import { useMemo, useState } from 'react'
-import { useLoanProfile, useStampPct } from '../hooks/useApp'
-import { fmtDate, isoDate, num, rupees, short } from '../lib/format'
-import { BID_STEP, defaultLoaDate, money } from '../lib/money'
+import type { BidPlan } from '../hooks/useBidPlan'
+import { openSettings } from '../hooks/useApp'
+import { fmtDate, num, rupees, short } from '../lib/format'
 import type { Plot } from '../lib/types'
-import { cashMilestones, loanPlan, peakCash } from '../lib/loan'
 import CashCalendar from './CashCalendar'
 import LoanCalc from './LoanCalc'
 import { Section } from './ui'
 
-export default function MoneyCalc({ plot }: { plot: Plot }) {
-  const [steps, setSteps] = useState(0)
-  const [stampPct, setStampPct] = useStampPct()
-  const [useGrace, setUseGrace] = useState(false)
-  const [loa, setLoa] = useState(() => isoDate(defaultLoaDate(plot)))
-  const rate = plot.rate + steps * BID_STEP
-  const loaDate = useMemo(() => {
-    const [y, m, d] = loa.split('-').map(Number)
-    return y ? new Date(y, m - 1, d) : defaultLoaDate(plot)
-  }, [loa, plot])
-  const m = money(plot, { rate, stampPct, loaDate, useGrace })
-  const maxSteps = Math.max(20, Math.round(plot.rate / BID_STEP / 2))
-  const { profile } = useLoanProfile()
-  const lp = loanPlan(m, profile)
-  const ms = cashMilestones(plot, m, lp, profile, useGrace)
+export default function MoneyCalc({ plot, plan }: { plot: Plot; plan: BidPlan }) {
+  const { rate, steps, stampPct, useGrace, setUseGrace, loa, setLoa, m, lp, ms, peak } = plan
 
   return (
     <>
-    <Section title="Money required">
-      <div className="rounded-xl bg-slate-100 p-3 dark:bg-slate-800/60">
-        <div className="flex items-center justify-between text-sm">
-          <label htmlFor="bid" className="font-medium">Your bid rate</label>
-          <span className="font-bold tabular-nums">₹{num(rate, 0)}/sq.yd</span>
-        </div>
-        <input
-          id="bid"
-          type="range"
-          min={0}
-          max={maxSteps}
-          value={steps}
-          onChange={(e) => setSteps(Number(e.target.value))}
-          className="mt-2 h-8 w-full"
-          aria-valuetext={`₹${rate} per sq.yd`}
-        />
-        <div className="flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
-          <span>Reserve ₹{num(plot.rate, 0)}</span>
-          <div className="flex gap-1">
-            {[-1, 1, 5].map((d) => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => setSteps((s) => Math.max(0, Math.min(maxSteps, s + d)))}
-                className="h-9 rounded-lg border border-slate-300 bg-white px-2.5 font-semibold text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-              >
-                {d > 0 ? '+' : '−'}₹{Math.abs(d)}k
-              </button>
-            ))}
-          </div>
-          <span>+{steps} step{steps === 1 ? '' : 's'}</span>
-        </div>
-      </div>
+    <Section id="costs" title="Money required">
+      <button
+        type="button"
+        onClick={() => document.getElementById('bid')?.scrollIntoView({ behavior: 'smooth' })}
+        className="flex w-full items-center justify-between gap-3 rounded-xl bg-slate-100 p-3 text-left text-sm dark:bg-slate-800/60"
+      >
+        <span>
+          At your bid of <b className="tabular-nums">₹{num(rate, 0)}/sq.yd</b>
+          <span className="block text-xs text-slate-500 dark:text-slate-400">{steps ? `Reserve ₹${num(plot.rate, 0)} + ${steps} step${steps === 1 ? '' : 's'}` : 'The reserve rate'}</span>
+        </span>
+        <span className="shrink-0 font-semibold text-teal-700 dark:text-teal-400">Change bid</span>
+      </button>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
@@ -98,10 +62,10 @@ export default function MoneyCalc({ plot }: { plot: Plot }) {
             <span>Letter of Acceptance date <span className="block text-xs text-slate-500">Not fixed in the RFP; default is auction + 7 days</span></span>
             <input type="date" value={loa} onChange={(e) => setLoa(e.target.value)} className="h-10 rounded-lg border border-slate-300 bg-white px-2 dark:border-slate-600 dark:bg-slate-900" />
           </label>
-          <label className="flex items-center justify-between gap-3">
-            <span>Stamp + transfer + registration % <span className="block text-xs text-slate-500">AP estimate: 5 + 1.5 + 1</span></span>
-            <input type="number" step={0.5} min={0} max={20} value={stampPct} onChange={(e) => setStampPct(Number(e.target.value) || 0)} className="h-10 w-20 rounded-lg border border-slate-300 bg-white px-2 text-right tabular-nums dark:border-slate-600 dark:bg-slate-900" />
-          </label>
+          <p className="flex items-center justify-between gap-3">
+            <span>Stamp + transfer + registration <b>{stampPct}%</b></span>
+            <button type="button" onClick={() => openSettings('costs')} className="text-sm font-semibold text-teal-700 underline dark:text-teal-400">Change</button>
+          </p>
           <label className="flex items-center justify-between gap-3">
             <span>Use the 30-day grace period <span className="block text-xs text-slate-500">12% p.a. interest from the LoA date</span></span>
             <input type="checkbox" checked={useGrace} onChange={(e) => setUseGrace(e.target.checked)} className="h-6 w-6 accent-teal-600" />
@@ -112,8 +76,12 @@ export default function MoneyCalc({ plot }: { plot: Plot }) {
         </div>
       </details>
     </Section>
-    <LoanCalc m={m} lp={lp} peak={peakCash(ms)} />
-    <CashCalendar plot={plot} ms={ms} />
+    <div id="loan" className="scroll-mt-28">
+      <LoanCalc m={m} lp={lp} peak={peak} />
+    </div>
+    <div id="cash" className="scroll-mt-28">
+      <CashCalendar plot={plot} ms={ms} />
+    </div>
     </>
   )
 }

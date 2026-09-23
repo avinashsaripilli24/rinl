@@ -1,19 +1,20 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Badge, Chip, FacingBadge, Icon, Section } from '../components/ui'
-import { useLoanProfile, useShortlist, useStampPct, useWeights } from '../hooks/useApp'
+import { previewClick } from '../components/PlotCard'
+import { Badge, Chip, FacingBadge, Icon, LoadMore, Section } from '../components/ui'
+import { openSettings, useEmi, useLoanProfile, usePreview, useShortlist, useStampPct, useWeights } from '../hooks/useApp'
+import { useInfinite } from '../hooks/useInfinite'
 import { useStored } from '../hooks/useStored'
+import { allInFactor, costAt as cost, maxRateFor as maxRate, type Basis } from '../lib/afford'
 import { PLOTS, factors, score } from '../lib/derive'
 import { blockLabel, num, short } from '../lib/format'
-import { ownFundsAt } from '../lib/loan'
-import { AUCTION_FEE_PCT, BID_STEP, GST_ON_FEE_PCT } from '../lib/money'
 import type { Plot } from '../lib/types'
 
-const TOP_N = 25
+const PAGE = 25
 
 type RankKey = 'overall' | 'vastu' | 'corner' | 'road' | 'value' | 'area' | 'features' | 'headroom'
 const RANKS: { key: RankKey; label: string; hint: string }[] = [
-  { key: 'overall', label: 'Overall', hint: 'Weighted score (weights set on the Compare tab)' },
+  { key: 'overall', label: 'Overall', hint: 'Weighted score (weights set in Settings)' },
   { key: 'vastu', label: 'Vastu', hint: 'NE › E › N › NW › SE › W › S, then more road sides' },
   { key: 'corner', label: 'Corner', hint: '3-side open › corner › two opposite roads › one road' },
   { key: 'road', label: 'Road width', hint: 'Widest road on the plot: 60′ › 40′ › 30′ › 24′' },
@@ -22,11 +23,6 @@ const RANKS: { key: RankKey; label: string; hint: string }[] = [
   { key: 'features', label: 'Features', hint: 'Most highlights, fewest concerns' },
   { key: 'headroom', label: 'Bid headroom', hint: 'Most room to bid above reserve within budget' },
 ]
-
-type Basis = 'allin' | 'reserve' | 'own'
-
-/** multiplier from sale value to all-in cash (stamp etc. + processing fee + GST on fee) */
-const allInFactor = (stampPct: number) => 1 + stampPct / 100 + (AUCTION_FEE_PCT / 100) * (1 + GST_ON_FEE_PCT / 100)
 
 export default function TopPicks() {
   const [budgetLakh, setBudgetLakh] = useStored<number>('budgetLakh', 150)
@@ -39,23 +35,14 @@ export default function TopPicks() {
   const { weights } = useWeights()
   const { has, toggle } = useShortlist()
   const { profile } = useLoanProfile()
+  const { open } = usePreview()
+  const { emiFor, cappedFor, hint } = useEmi()
 
   const budget = (budgetLakh || 0) * 1e5
+  const savingsLakh = Math.floor(profile.savings / 1e3) / 100
   const k = allInFactor(stampPct)
-  /** what has to fit the budget at a given bid rate */
-  const costAt = (p: Plot, rate: number) =>
-    basis === 'own' ? ownFundsAt(p, rate, stampPct, profile).lp.ownFunds : basis === 'allin' ? rate * p.area * k : rate * p.area
-  /** highest bid rate (₹1,000 steps) whose cost still fits; binary search, since cost rises with the rate */
-  const maxRateFor = (p: Plot) => {
-    let lo = 0
-    let hi = 400
-    while (lo < hi) {
-      const mid = Math.ceil((lo + hi) / 2)
-      if (costAt(p, p.rate + mid * BID_STEP) <= budget) lo = mid
-      else hi = mid - 1
-    }
-    return p.rate + lo * BID_STEP
-  }
+  const costAt = (p: Plot, rate: number) => cost(p, rate, basis, stampPct, profile)
+  const maxRateFor = (p: Plot) => maxRate(p, budget, basis, stampPct, profile)
 
   const { fitting, picks } = useMemo(() => {
     const rows = PLOTS.filter((p) => costAt(p, p.rate) <= budget)
@@ -82,8 +69,9 @@ export default function TopPicks() {
       return 0
     }
     const sorted = [...rows].sort((a, b) => cmp(key[rankBy](a), key[rankBy](b)))
-    return { fitting: rows.length, picks: sorted.slice(0, TOP_N) }
+    return { fitting: rows.length, picks: sorted }
   }, [budget, k, basis, profile, day, cornerOnly, noBad, rankBy, weights])
+  const { limit, sentinel, more } = useInfinite(picks.length, PAGE, `${budget}|${basis}|${day}|${cornerOnly}|${noBad}|${rankBy}`)
 
   const rank = RANKS.find((r) => r.key === rankBy)!
 
@@ -91,7 +79,7 @@ export default function TopPicks() {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold">Top picks for your budget</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">The best {TOP_N} plots you can afford at reserve price, ranked your way.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Every plot you can afford at reserve price, ranked your way.</p>
       </div>
 
       <Section title="Budget">
@@ -116,6 +104,11 @@ export default function TopPicks() {
           </div>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
+          {profile.savings ? (
+            <Chip active={budgetLakh === savingsLakh && basis === 'own'} onClick={() => { setBudgetLakh(savingsLakh); setBasis('own') }}>
+              My savings
+            </Chip>
+          ) : null}
           {[100, 125, 150, 200, 300].map((v) => (
             <Chip key={v} active={budgetLakh === v} onClick={() => setBudgetLakh(v)}>
               {v >= 100 ? `${v / 100} Cr` : `${v} L`}
@@ -145,9 +138,12 @@ export default function TopPicks() {
           {basis === 'allin'
             ? `All-in = reserve price + ~${stampPct}% stamp/transfer/registration + 0.1% auction fee + GST. A plot fits if all of that is within your budget.`
             : basis === 'own'
-              ? `Own funds = all-in cost + loan processing fee − the bank loan (${profile.ltvPct}% LTV${profile.netMonthlyIncome ? ', capped by your income' : ''} at ${profile.ratePct}%, set on any plot's detail page). The loan can only pay the balance instalment.`
+              ? `Own funds = all-in cost + loan processing fee − the bank loan (${profile.ltvPct}% LTV${profile.netMonthlyIncome ? ', capped by your income' : ''} at ${profile.ratePct}%). The loan can only pay the balance instalment.`
               : 'Only the reserve price has to fit. Stamp duty (~7.5%) and fees come on top.'}{' '}
-          The auction starts at reserve, so bidding pushes the price up.
+          The auction starts at reserve, so bidding pushes the price up.{' '}
+          <button type="button" onClick={() => openSettings(basis === 'own' ? 'profile' : 'costs')} className="font-semibold text-teal-700 underline dark:text-teal-400">
+            Edit assumptions
+          </button>
         </p>
       </Section>
 
@@ -177,13 +173,13 @@ export default function TopPicks() {
         </div>
       ) : (
         <ol className="space-y-3">
-          {picks.map(({ p, s, maxRate, headroom }, i) => {
+          {picks.slice(0, limit).map(({ p, s, maxRate, headroom }, i) => {
             const allIn = p.reservePrice * allInFactor(stampPct)
             const good = p.tags.filter((t) => t.kind === 'good' && !['corner', 'open3', 'frontback', 'road60', 'road40'].includes(t.key))
             const bad = p.tags.filter((t) => t.kind === 'bad')
             return (
               <li key={p.id} className="relative rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <Link to={`/plot/${p.id}`} className="flex gap-3 p-3.5 pr-14">
+                <Link to={`/plot/${p.id}`} onClick={previewClick(() => open(p.id))} className="flex gap-3 p-3.5 pr-14">
                   <div
                     className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl text-lg font-bold ${
                       i < 3 ? 'bg-amber-400 text-amber-950' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
@@ -210,7 +206,7 @@ export default function TopPicks() {
                       {good.map((t) => <Badge key={t.key} tone="emerald">＋ {t.label}</Badge>)}
                       {bad.map((t) => <Badge key={t.key} tone="rose">− {t.label.split('.')[0]}</Badge>)}
                     </div>
-                    <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2 text-xs dark:bg-slate-800/50">
+                    <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2 text-xs sm:grid-cols-3 dark:bg-slate-800/50">
                       <div>
                         <div className="text-slate-500 dark:text-slate-400">{basis === 'own' ? 'Own funds at reserve' : 'All-in at reserve'}</div>
                         <div className="font-semibold tabular-nums">{short(basis === 'own' ? costAt(p, p.rate) : allIn)}</div>
@@ -221,6 +217,10 @@ export default function TopPicks() {
                           ₹{num(maxRate, 0)}/sq.yd{' '}
                           <span className="font-normal text-emerald-700 dark:text-emerald-400">(+₹{num(headroom / 1000, 0)}k)</span>
                         </div>
+                      </div>
+                      <div title={hint}>
+                        <div className="text-slate-500 dark:text-slate-400">EMI at reserve</div>
+                        <div className="font-semibold tabular-nums">{emiFor(p) ? `${short(emiFor(p))}/mo` : 'No loan'}{cappedFor(p) ? <span className="font-normal text-slate-500 dark:text-slate-400"> · income max</span> : null}</div>
                       </div>
                     </div>
                   </div>
@@ -242,6 +242,7 @@ export default function TopPicks() {
           })}
         </ol>
       )}
+      <LoadMore sentinel={sentinel} more={more} left={picks.length - limit} />
       <p className="text-xs text-slate-500 dark:text-slate-400">
         Tap ☆ to add a plot to your shortlist, then compare the shortlisted plots side by side on the Compare tab. "Max bid in budget" is the highest bid per sq.yd that keeps your{' '}
         {basis === 'allin' ? 'all-in cost' : basis === 'own' ? 'own funds' : 'sale price'} within budget, in ₹1,000 steps.

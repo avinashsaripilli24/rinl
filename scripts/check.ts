@@ -14,13 +14,12 @@ function expect(label: string, got: unknown, want: unknown) {
 const u = (unit: string) => PLOTS.find((p) => p.unit === unit)!
 const q = (text: string) => applyFilters(PLOTS, { ...EMPTY, q: text }, DEFAULT_WEIGHTS).map((p) => p.unit)
 
-expect('total plots', PLOTS.length, 459)
+expect('total plots', PLOTS.length, 456)
 expect('LIG-358 facing/sides', [u('LIG-358').facing, u('LIG-358').roadSides, u('LIG-358').maxRoad], ['NE', 2, 30])
 expect('MIG-150 facing/road', [u('MIG-150').facing, u('MIG-150').maxRoad], ['NE', 60])
 expect('MIG-130 roads', u('MIG-130').roads.map((r) => r.label), ["24' road", 'Krishna Road'])
 expect('MIG-130 drain concern', u('MIG-130').tags.some((t) => t.key === 'drain'), true)
 expect('LIG-565 narrow', [u('LIG-565').facing, u('LIG-565').tags.some((t) => t.key === 'narrow')], ['SE', true])
-expect('Autonagar B2 industrial', [u('Autonagar B2').landUse, u('Autonagar B2').roadSides], ['Industrial', 3])
 expect('MIG-82 conflict + day', [u('MIG-82').day, u('MIG-82').conflicts.length > 0], [2, true])
 expect('LIG-549 11A/11B conflict', u('LIG-549').conflicts.some((c) => c.includes('11B')), true)
 expect('LIG-586 block (merged cell fix)', u('LIG-586').block, '19')

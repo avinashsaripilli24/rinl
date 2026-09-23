@@ -11,8 +11,8 @@ export function short(n: number): string {
   return rupees(n)
 }
 
-/** "13" -> "Block 13", "Autonagar B2" stays as is */
-export const blockLabel = (b: string) => (/^auto/i.test(b) ? b : `Block ${b}`)
+/** "13" -> "Block 13" */
+export const blockLabel = (b: string) => `Block ${b}`
 
 export const num =(n: number, d = 2) => new Intl.NumberFormat('en-IN', { maximumFractionDigits: d }).format(n)
 

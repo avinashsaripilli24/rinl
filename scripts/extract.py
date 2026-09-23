@@ -171,22 +171,19 @@ def rfp():
     return out
 
 
-def unit_key(unit, block):
-    u = norm_unit(unit)
-    if re.match(r"(?i)auto", block or ""):
-        b = re.search(r"(\d)", block).group(1)
-        return f"Autonagar B{b}" + (f"-{u}" if u in ("A", "B") else "")
-    return u
+def is_autonagar(block):
+    return bool(re.match(r"(?i)auto", block or ""))
 
 
 def main():
-    ml = main_list()
-    rf = rfp()
+    # Autonagar (Gajuwaka) plots are left out of the app entirely
+    ml = [r for r in main_list() if not is_autonagar(r["blockRaw"])]
+    rf = [r for r in rfp() if not is_autonagar(r["block"])]
     for r in ml:
-        r["unit"] = unit_key(r["unitRaw"], r["blockRaw"])
+        r["unit"] = norm_unit(r["unitRaw"])
     rfmap = {}
     for r in rf:
-        r["key"] = unit_key(r["unit"], r["block"])
+        r["key"] = norm_unit(r["unit"])
         rfmap.setdefault(r["key"], []).append(r)
 
     # coordinates per (annexure, block) taken from rows whose block label is on the same page
@@ -209,7 +206,7 @@ def main():
             match = {}
         else:
             mb = match.get("block", "")
-            if mb and not re.match(r"(?i)auto", mb) and mb.upper() != (block or "").upper():
+            if mb and mb.upper() != (block or "").upper():
                 if not r["ownBlock"] and (r["nextBlock"] or "").upper() == mb.upper():
                     # parse artifact: merged block label lies on the next page; RFP has the real block
                     block = mb
@@ -235,14 +232,10 @@ def main():
                              f"EMD {r['emdDate']} / auction {r['auctionDate']}; the RFP lists it under "
                              f"Annexure {'I' if day == 1 else 'II'}. Shown here as Day {day}.")
         conflicts += ov.get("conflicts", [])
-        auto = r["unit"].startswith("Autonagar")
-        if auto:
-            block = r["unit"].split("-")[0]
-        land = "Industrial" if "Industrial" in r["landUse"] else r["landUse"]
         plots.append(dict(
             id=re.sub(r"[^A-Za-z0-9]+", "-", r["unit"]).strip("-").lower(),
             unit=r["unit"], block=block, day=day, listedInDayTable=r["annex"], sl=r["sl"],
-            area=r["area"], landUse=land, reservePrice=r["price"], rate=r["rate"], emd=r["emd"],
+            area=r["area"], landUse=r["landUse"], reservePrice=r["price"], rate=r["rate"], emd=r["emd"],
             emdLastDate=r["emdDate"], auctionDate=r["auctionDate"],
             coords=coords,
             approach=approach, surroundings=sur, conflicts=conflicts, rfpPage=match.get("page"),
@@ -251,7 +244,7 @@ def main():
     d1 = sum(p["listedInDayTable"] == 1 for p in plots)
     d2 = sum(p["listedInDayTable"] == 2 for p in plots)
     print("Day1", d1, "Day2", d2, "total", len(plots))
-    if (d1, d2) != (243, 216):
+    if (d1, d2) != (240, 216):
         problems.append("row counts wrong")
     for p in plots:
         if abs(p["area"] * p["rate"] - p["reservePrice"]) > 1000:

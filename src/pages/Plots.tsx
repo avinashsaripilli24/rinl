@@ -1,22 +1,47 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import FilterSheet from '../components/FilterSheet'
 import PlotCard from '../components/PlotCard'
-import { Chip, Icon } from '../components/ui'
+import { Chip, Icon, LoadMore } from '../components/ui'
 import { useWeights } from '../hooks/useApp'
+import { useInfinite } from '../hooks/useInfinite'
 import { PLOTS, score } from '../lib/derive'
-import { short } from '../lib/format'
 import { SORTS, activeCount, applyFilters, fromParams, nearbyBlocks, toParams, type Filters } from '../lib/search'
 
 const PAGE = 40
 
+// Leaflet only loads when the map is opened
+const PlotsMap = lazy(() => import('../components/PlotsMap'))
+
 export default function Plots() {
   const [sp, setSp] = useSearchParams()
   const filters = useMemo(() => fromParams(sp), [sp])
-  const setFilters = (f: Filters) => setSp(toParams(f), { replace: true })
+  const view = sp.get('view') === 'map' ? 'map' : 'list'
+  const focus = sp.get('focus') ?? ''
+  const layer = sp.get('layer') === 'plots' ? 'plots' : 'blocks'
+  /** keep the list/map view, the map layer and the focused block when filters change */
+  const withView = (next: URLSearchParams, v: string, f: string) => {
+    if (v === 'map') next.set('view', 'map')
+    if (v === 'map' && f) next.set('focus', f)
+    if (v === 'map' && layer === 'plots') next.set('layer', 'plots')
+    return next
+  }
+  const setFilters = (f: Filters) => setSp(withView(toParams(f), view, focus), { replace: true })
+  const setView = (v: 'list' | 'map') => setSp(withView(toParams(filters), v, focus), { replace: true })
+  const setFocus = useCallback((b: string) => setSp((cur) => {
+    const next = new URLSearchParams(cur)
+    if (b) next.set('focus', b)
+    else next.delete('focus')
+    return next
+  }, { replace: true }), [setSp])
+  const setLayer = (l: 'blocks' | 'plots') => setSp((cur) => {
+    const next = new URLSearchParams(cur)
+    if (l === 'plots') next.set('layer', 'plots')
+    else next.delete('layer')
+    return next
+  }, { replace: true })
   const [q, setQ] = useState(filters.q)
   const [sheet, setSheet] = useState(false)
-  const [limit, setLimit] = useState(PAGE)
   const { weights } = useWeights()
   const navigate = useNavigate()
 
@@ -31,11 +56,8 @@ export default function Plots() {
   }, [filters.q])
 
   const results = useMemo(() => applyFilters(PLOTS, filters, weights), [filters, weights])
-  useEffect(() => {
-    setLimit(PAGE)
-  }, [filters])
+  const { limit, sentinel, more } = useInfinite(results.length, PAGE, sp.toString())
 
-  const total = results.reduce((a, p) => a + p.reservePrice, 0)
   const n = activeCount(filters)
   const quick = (patch: Partial<Filters>) => setFilters({ ...filters, ...patch })
 
@@ -95,16 +117,28 @@ export default function Plots() {
         </div>
 
         <div className="mt-2 flex items-center justify-between gap-2 text-sm">
-          <span className="text-slate-600 dark:text-slate-400">
-            <b className="text-slate-900 dark:text-slate-100">{results.length}</b> of {PLOTS.length} plots
-            {results.length ? <span className="hidden sm:inline"> · reserve total {short(total)}</span> : null}
-          </span>
-          <label className="flex items-center gap-1">
+          <div className="ml-auto flex rounded-lg bg-slate-200 p-0.5 dark:bg-slate-800" role="radiogroup" aria-label="View">
+            {(['list', 'map'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                role="radio"
+                aria-checked={view === v}
+                aria-label={v === 'list' ? 'List view' : 'Map view'}
+                onClick={() => setView(v)}
+                className={`flex h-8 items-center gap-1 rounded-md px-2 text-sm font-medium ${view === v ? 'bg-white shadow dark:bg-slate-950' : 'text-slate-600 dark:text-slate-400'}`}
+              >
+                <Icon name={v === 'list' ? 'grid' : 'map'} className="h-4 w-4" />
+                <span className="hidden min-[400px]:inline">{v === 'list' ? 'List' : 'Map'}</span>
+              </button>
+            ))}
+          </div>
+          <label className={`flex items-center gap-1 ${view === 'map' ? 'hidden' : ''}`}>
             <span className="sr-only">Sort by</span>
             <select
               value={filters.sort}
               onChange={(e) => setFilters({ ...filters, sort: e.target.value as Filters['sort'] })}
-              className="h-9 max-w-[11rem] rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+              className="h-9 max-w-[8.5rem] rounded-lg sm:max-w-[11rem] border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-900"
             >
               {SORTS.map((s) => (
                 <option key={s.key} value={s.key}>{s.label}</option>
@@ -114,7 +148,11 @@ export default function Plots() {
         </div>
       </div>
 
-      {results.length === 0 ? (
+      {view === 'map' ? (
+        <Suspense fallback={<div className="mt-2 grid h-80 place-items-center text-sm text-slate-500">Loading map…</div>}>
+          <PlotsMap plots={results} focus={focus} onFocus={setFocus} layer={layer} onLayer={setLayer} />
+        </Suspense>
+      ) : results.length === 0 ? (
         <EmptyState q={filters.q} filtered={n > 0} onPick={(v) => { setQ(v); setFilters({ ...filters, q: v }) }} onReset={() => setFilters({ ...filters, q: '', ...clearAll })} />
       ) : (
         <ul className="mt-2 grid gap-3 sm:grid-cols-2">
@@ -125,11 +163,7 @@ export default function Plots() {
           ))}
         </ul>
       )}
-      {results.length > limit ? (
-        <button type="button" onClick={() => setLimit((l) => l + PAGE * 2)} className="mt-4 h-12 w-full rounded-xl border border-slate-300 font-semibold dark:border-slate-700">
-          Show more ({results.length - limit} left)
-        </button>
-      ) : null}
+      {view === 'list' ? <LoadMore sentinel={sentinel} more={more} left={results.length - limit} /> : null}
 
       <FilterSheet open={sheet} onClose={() => setSheet(false)} filters={filters} onChange={setFilters} count={results.length} />
     </div>
@@ -138,7 +172,7 @@ export default function Plots() {
 
 const clearAll: Partial<Filters> = {
   day: '', blocks: [], types: [], facing: [], corner: false, minRoad: 0, minSides: 0,
-  areaMin: null, areaMax: null, priceMin: null, priceMax: null, rateMin: null, rateMax: null, good: false, noBad: false, zone: '',
+  areaMin: null, areaMax: null, priceMin: null, priceMax: null, rateMin: null, rateMax: null, good: false, noBad: false,
 }
 
 function EmptyState({ q, filtered, onPick, onReset }: { q: string; filtered: boolean; onPick: (v: string) => void; onReset: () => void }) {

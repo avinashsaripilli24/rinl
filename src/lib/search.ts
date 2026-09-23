@@ -18,7 +18,6 @@ export interface Filters {
   rateMax: number | null
   good: boolean
   noBad: boolean
-  zone: '' | 'HB Colony' | 'Autonagar'
   sort: SortKey
 }
 
@@ -38,7 +37,7 @@ export const SORTS: { key: SortKey; label: string }[] = [
 export const EMPTY: Filters = {
   q: '', day: '', blocks: [], types: [], facing: [], corner: false, minRoad: 0, minSides: 0,
   areaMin: null, areaMax: null, priceMin: null, priceMax: null, rateMin: null, rateMax: null,
-  good: false, noBad: false, zone: '', sort: 'score',
+  good: false, noBad: false, sort: 'score',
 }
 
 const list = (v: string | null) => (v ? v.split(',').filter(Boolean) : [])
@@ -59,7 +58,6 @@ export function fromParams(sp: URLSearchParams): Filters {
     rateMin: n(sp.get('rateMin')), rateMax: n(sp.get('rateMax')),
     good: sp.get('good') === '1',
     noBad: sp.get('noBad') === '1',
-    zone: (sp.get('zone') as Filters['zone']) ?? '',
     sort: (sp.get('sort') as SortKey) || 'score',
   }
 }
@@ -73,7 +71,7 @@ export function toParams(f: Filters): URLSearchParams {
   set('q', f.q); set('day', f.day); set('blocks', f.blocks); set('types', f.types); set('facing', f.facing)
   set('corner', f.corner); set('minRoad', f.minRoad); set('minSides', f.minSides)
   set('areaMin', f.areaMin); set('areaMax', f.areaMax); set('priceMin', f.priceMin); set('priceMax', f.priceMax)
-  set('rateMin', f.rateMin); set('rateMax', f.rateMax); set('good', f.good); set('noBad', f.noBad); set('zone', f.zone)
+  set('rateMin', f.rateMin); set('rateMax', f.rateMax); set('good', f.good); set('noBad', f.noBad)
   if (f.sort !== 'score') sp.set('sort', f.sort)
   return sp
 }
@@ -93,7 +91,6 @@ export function activeCount(f: Filters): number {
   if (f.rateMin != null || f.rateMax != null) c++
   if (f.good) c++
   if (f.noBad) c++
-  if (f.zone) c++
   return c
 }
 
@@ -124,7 +121,6 @@ function matchOne(p: Plot, q: string): boolean {
   if (unitQ) return p.unit === `${unitQ[1].toUpperCase()}-${Number(unitQ[2])}`
   if (/^(lig|mig)$/.test(q)) return p.type === q.toUpperCase()
   if (/^pump/.test(q)) return p.type === 'Pump House'
-  if (/^auto/.test(q)) return p.type === 'Autonagar'
   if (/^(ne|nw|se|sw|n|e|s|w)$/.test(q)) return p.facing === q.toUpperCase()
   return q.split(/\s+/).every((w) => p.searchText.includes(w))
 }
@@ -158,7 +154,6 @@ export function applyFilters(plots: Plot[], f: Filters, w: Weights): Plot[] {
     if (f.rateMax != null && p.rate > f.rateMax) return false
     if (f.good && !p.tags.some((t) => t.kind === 'good' && t.key !== 'corner')) return false
     if (f.noBad && p.tags.some((t) => t.kind === 'bad')) return false
-    if (f.zone && p.zone !== f.zone) return false
     return true
   })
   return sortPlots(out, f.sort, w)

@@ -36,6 +36,12 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: { cacheName: 'pdfs', expiration: { maxEntries: 4 } },
           },
+          // map tiles you have looked at stay available on site visits with a weak signal
+          {
+            urlPattern: ({ url }) => /tile\.openstreetmap\.org|arcgisonline\.com/.test(url.hostname),
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'map-tiles', expiration: { maxEntries: 600, maxAgeSeconds: 30 * 86400 }, cacheableResponse: { statuses: [0, 200] } },
+          },
         ],
       },
     }),

@@ -1,4 +1,4 @@
-import type { ReactNode, SVGProps } from 'react'
+import type { ReactNode, RefObject, SVGProps } from 'react'
 import type { Facing, Tag } from '../lib/types'
 
 const paths = {
@@ -21,6 +21,9 @@ const paths = {
   check: 'M20 6L9 17l-5-5',
   calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
   trophy: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3',
+  gear: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
+  map: 'M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14',
+  chart: 'M3 3v18h18M8 17V11M13 17V7M18 17v-4',
   sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
 }
 export type IconName = keyof typeof paths
@@ -33,13 +36,13 @@ export function Icon({ name, className = 'h-5 w-5', solid, ...rest }: { name: Ic
   )
 }
 
-export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 ${className}`}>{children}</div>
+export function Card({ id, children, className = '' }: { id?: string; children: ReactNode; className?: string }) {
+  return <div id={id} className={`rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 ${className}`}>{children}</div>
 }
 
-export function Section({ title, children, right, className = '' }: { title: ReactNode; children: ReactNode; right?: ReactNode; className?: string }) {
+export function Section({ id, title, children, right, className = '' }: { id?: string; title: ReactNode; children: ReactNode; right?: ReactNode; className?: string }) {
   return (
-    <Card className={`p-4 ${className}`}>
+    <Card id={id} className={`scroll-mt-28 p-4 ${className}`}>
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{title}</h2>
         {right}
@@ -117,6 +120,16 @@ export function Stat({ label, value, sub }: { label: string; value: ReactNode; s
       <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
       <div className="truncate text-base font-semibold tabular-nums">{value}</div>
       {sub ? <div className="text-xs text-slate-500 dark:text-slate-400">{sub}</div> : null}
+    </div>
+  )
+}
+
+/** Invisible trigger for infinite scroll, with a quiet status line while more rows remain. */
+export function LoadMore({ sentinel, more, left }: { sentinel: RefObject<HTMLDivElement | null>; more: boolean; left: number }) {
+  if (!more) return null
+  return (
+    <div ref={sentinel} className="py-6 text-center text-xs text-slate-500 dark:text-slate-400" aria-live="polite">
+      Loading {left} more…
     </div>
   )
 }

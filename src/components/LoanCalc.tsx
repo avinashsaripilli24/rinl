@@ -1,32 +1,7 @@
-import { useLoanProfile } from '../hooks/useApp'
+import { openSettings, useLoanProfile } from '../hooks/useApp'
 import { rupees, short } from '../lib/format'
-import { LOAN_PRESETS, type LoanPlanResult, type LoanProfile, type MoneyResult } from '../lib/loan'
-import { Chip, Icon, Section } from './ui'
-
-function Field({ label, hint, value, onChange, step = 1, suffix, min = 0, max }: { label: string; hint?: string; value: number; onChange: (v: number) => void; step?: number; suffix?: string; min?: number; max?: number }) {
-  return (
-    <label className="flex items-center justify-between gap-3">
-      <span className="min-w-0">
-        {label}
-        {hint ? <span className="block text-xs text-slate-500 dark:text-slate-400">{hint}</span> : null}
-      </span>
-      <span className="relative shrink-0">
-        <input
-          type="number"
-          inputMode="decimal"
-          step={step}
-          min={min}
-          max={max}
-          value={value || ''}
-          placeholder="0"
-          onChange={(e) => onChange(Number(e.target.value) || 0)}
-          className={`h-10 rounded-lg border border-slate-300 bg-white px-2 text-right tabular-nums dark:border-slate-600 dark:bg-slate-900 ${suffix ? 'w-28 pr-9' : 'w-32'}`}
-        />
-        {suffix ? <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">{suffix}</span> : null}
-      </span>
-    </label>
-  )
-}
+import type { LoanPlanResult, MoneyResult } from '../lib/loan'
+import { Icon, Section } from './ui'
 
 function Card({ label, value, sub, tone = 'plain' }: { label: string; value: string; sub?: string; tone?: 'plain' | 'teal' | 'amber' }) {
   const tones = {
@@ -44,10 +19,9 @@ function Card({ label, value, sub, tone = 'plain' }: { label: string; value: str
 }
 
 export default function LoanCalc({ m, lp, peak }: { m: MoneyResult; lp: LoanPlanResult; peak: number }) {
-  const { profile: p, set, reset } = useLoanProfile()
+  const { profile: p } = useLoanProfile()
   const income = p.netMonthlyIncome + p.coApplicantIncome
   const shortOfFull = lp.fullLoan - lp.loanUsed
-  const setNum = (k: keyof LoanProfile) => (v: number) => set({ [k]: v } as Partial<LoanProfile>)
 
   return (
     <Section title="Bank loan & cash in hand">
@@ -86,36 +60,30 @@ export default function LoanCalc({ m, lp, peak }: { m: MoneyResult; lp: LoanPlan
         )
       ) : (
         <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
-          Add your monthly income under <b>Customise</b> to check whether a bank will lend the full amount. The full {p.ltvPct}% loan needs about{' '}
+          Add your monthly income in <button type="button" onClick={() => openSettings('profile')} className="font-semibold text-teal-700 underline dark:text-teal-400">Settings</button> to check whether a bank will lend the full amount. The full {p.ltvPct}% loan needs about{' '}
           <b>{rupees(lp.minIncomeForFullLoan)}/month</b> net income (at {p.foirPct}% FOIR).
         </p>
       )}
 
-      <div className="mt-4">
-        <div className="mb-1.5 text-sm font-semibold">How the loan reaches RINL</div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup">
-          {(
-            [
-              ['bank-before-deed', 'Bank pays RINL directly', 'Needs RINL’s NOC/tripartite letter before the deed'],
-              ['own-funds-then-loan', 'Own funds first, loan after deed', 'Pay 100% yourself (bridge), then take the loan'],
-            ] as const
-          ).map(([v, l, h]) => (
-            <button
-              key={v}
-              role="radio"
-              aria-checked={p.scenario === v}
-              onClick={() => set({ scenario: v })}
-              className={`rounded-xl border p-3 text-left ${p.scenario === v ? 'border-teal-500 bg-teal-50 dark:bg-teal-500/10' : 'border-slate-200 dark:border-slate-800'}`}
-            >
-              <div className="text-sm font-semibold">{l}</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">{h}</div>
-            </button>
-          ))}
-        </div>
+      <button
+        type="button"
+        onClick={() => openSettings('loan')}
+        className="mt-3 flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left text-sm dark:border-slate-800"
+      >
+        <Icon name="gear" className="h-5 w-5 shrink-0 text-slate-500" />
+        <span className="min-w-0 flex-1">
+          <span className="block font-medium">
+            {p.ratePct}% · {p.tenureYears} yrs · {p.ltvPct}% LTV · {p.scenario === 'bank-before-deed' ? 'bank pays RINL' : 'own funds, loan after deed'}
+          </span>
+          <span className="block text-xs text-slate-500 dark:text-slate-400">{income ? `Income ${rupees(income)}/month` : 'Income not set'} · change in Settings</span>
+        </span>
+        <span className="font-semibold text-teal-700 dark:text-teal-400">Edit</span>
+      </button>
+      {p.scenario === 'bank-before-deed' ? (
         <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-          RFP clause 5.6 bars any mortgage or charge on the plot until the sale deed is registered, and 100% of the price is due within 45 days of the LoA (75 with interest). Confirm with RINL and your bank that a loan can pay RINL before the deed. If not, plan for the peak cash shown above.
+          RFP clause 5.6 bars any mortgage on the plot until the sale deed is registered. Confirm with RINL and your bank that a loan can pay RINL before the deed; if not, plan for the peak cash shown above.
         </p>
-      </div>
+      ) : null}
 
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
         <dt className="text-slate-500 dark:text-slate-400">Loan limit by LTV</dt>
@@ -132,29 +100,6 @@ export default function LoanCalc({ m, lp, peak }: { m: MoneyResult; lp: LoanPlan
         <dd className="text-right tabular-nums">{rupees(lp.totalRepay)}</dd>
       </dl>
 
-      <details className="mt-3 rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-800/40">
-        <summary className="cursor-pointer font-medium">Customise loan &amp; income (applies to all plots)</summary>
-        <div className="mt-3 space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {LOAN_PRESETS.map((pr) => (
-              <Chip key={pr.label} active={Object.entries(pr.patch).every(([k, v]) => p[k as keyof LoanProfile] === v)} onClick={() => set(pr.patch)}>
-                {pr.label}
-              </Chip>
-            ))}
-          </div>
-          <Field label="Your net monthly income" value={p.netMonthlyIncome} onChange={setNum('netMonthlyIncome')} step={5000} suffix="₹" />
-          <Field label="Co-applicant net income" hint="Spouse/parent, optional" value={p.coApplicantIncome} onChange={setNum('coApplicantIncome')} step={5000} suffix="₹" />
-          <Field label="Existing EMIs per month" value={p.existingEmis} onChange={setNum('existingEmis')} step={1000} suffix="₹" />
-          <Field label="Loan-to-value" hint="Plot loans: 70–80%. Stamp duty is not financed." value={p.ltvPct} onChange={setNum('ltvPct')} max={90} suffix="%" />
-          <Field label="Interest rate" value={p.ratePct} onChange={setNum('ratePct')} step={0.05} max={20} suffix="%" />
-          <Field label="Tenure" hint="Plot loans are usually 10–15 yrs" value={p.tenureYears} onChange={setNum('tenureYears')} max={30} suffix="yrs" />
-          <Field label="FOIR" hint="Share of income banks allow for all EMIs" value={p.foirPct} onChange={setNum('foirPct')} max={75} suffix="%" />
-          <Field label="Processing fee" hint="+18% GST" value={p.processingFeePct} onChange={setNum('processingFeePct')} step={0.05} max={3} suffix="%" />
-          <button type="button" onClick={reset} className="text-sm font-semibold text-teal-700 underline dark:text-teal-400">
-            Reset loan terms (keeps your income)
-          </button>
-        </div>
-      </details>
       <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
         Indicative figures only. Actual eligibility depends on the bank, your credit score and its valuation of the plot.
       </p>
