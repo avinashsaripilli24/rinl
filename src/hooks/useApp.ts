@@ -29,6 +29,22 @@ export function useNotes() {
   return { notes, noteFor: (id: string) => notes[id] ?? '', setNote }
 }
 
+/** Plots you have visited on site, with the time you ticked them. */
+export function useVisited() {
+  const [v, setV] = useStored<Record<string, number>>('visited', {})
+  const toggle = useCallback(
+    (id: string) =>
+      setV((m) => {
+        const next = { ...m }
+        if (next[id]) delete next[id]
+        else next[id] = Date.now()
+        return next
+      }),
+    [setV],
+  )
+  return { visited: v, visitedAt: (id: string) => v[id] ?? 0, toggle }
+}
+
 /** Starred plots left out of the side-by-side table. Stored as exclusions so newly starred plots are compared by default. */
 export function useCompareExclude() {
   const [ex, setEx] = useStored<string[]>('compareExclude', [])

@@ -2,12 +2,13 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import PlotCard, { previewClick } from '../components/PlotCard'
 import PlotNote from '../components/PlotNote'
+import { PhotoStrip } from '../components/PlotPhotos'
 import { WEIGHT_LABELS } from '../components/SettingsSheet'
 import { Chip, FacingBadge, Icon, LoadMore } from '../components/ui'
-import { openSettings, useCompareExclude, useLoanProfile, useNotes, usePreview, useShortlist, useStampPct, useWeights } from '../hooks/useApp'
+import { openSettings, useCompareExclude, useLoanProfile, useNotes, usePreview, useShortlist, useStampPct, useVisited, useWeights } from '../hooks/useApp'
 import { useInfinite } from '../hooks/useInfinite'
 import { PLOTS, PLOT_BY_ID, score } from '../lib/derive'
-import { blockLabel, num, short } from '../lib/format'
+import { blockLabel, fmtDate, num, short } from '../lib/format'
 import { ownFundsAt } from '../lib/loan'
 import { EMD } from '../lib/money'
 import type { Plot, PlotType, Weights } from '../lib/types'
@@ -46,6 +47,7 @@ const bestBy = (fn: (p: Plot) => number, dir: 'max' | 'min') => (ps: Plot[]) => 
 function ShortlistTable({ plots, weights, stampPct }: { plots: Plot[]; weights: Weights; stampPct: number }) {
   const { toggle } = useCompareExclude()
   const { noteFor } = useNotes()
+  const { visitedAt } = useVisited()
   const { open } = usePreview()
   const { profile } = useLoanProfile()
   const loan = (p: Plot) => ownFundsAt(p, p.rate, stampPct, profile).lp
@@ -53,6 +55,8 @@ function ShortlistTable({ plots, weights, stampPct }: { plots: Plot[]; weights: 
   const rows: Row[] = [
     { label: 'Score', get: (p) => <b className="text-teal-700 dark:text-teal-300">{score(p, weights)}</b>, best: bestBy((p) => score(p, weights), 'max') },
     { label: 'My notes', get: (p) => <span className="whitespace-pre-line text-slate-700 dark:text-slate-300">{noteFor(p.id) || <span className="text-slate-400">–</span>}</span> },
+    { label: 'Visited', get: (p) => (visitedAt(p.id) ? <span className="text-emerald-700 dark:text-emerald-400">✓ {fmtDate(new Date(visitedAt(p.id)))}</span> : <span className="text-slate-400">Not yet</span>) },
+    { label: 'Photos', get: (p) => <PhotoStrip id={p.id} unit={p.unit} /> },
     { label: 'Facing (vastu #)', get: (p) => <FacingBadge facing={p.facing} rank={p.vastuRank <= 8 ? p.vastuRank : undefined} />, best: bestBy((p) => -p.vastuRank, 'max') },
     { label: 'Road sides', get: (p) => (p.roadSides >= 3 ? '3-side open' : p.isCorner ? 'Corner' : p.roadSides === 2 ? 'Front & back roads' : '1 side'), best: bestBy((p) => p.roadSides, 'max') },
     { label: 'Roads', get: (p) => p.roads.map((r) => `${r.side}: ${r.width ? r.width + '′' : r.label}`).join(', ') },
@@ -78,13 +82,14 @@ function ShortlistTable({ plots, weights, stampPct }: { plots: Plot[]; weights: 
     { label: 'Map', get: (p) => (p.mapUrl ? <a href={p.mapUrl} target="_blank" rel="noreferrer" className="font-semibold text-teal-700 underline dark:text-teal-400">Open</a> : '') },
   ]
   return (
-    <div className="-mx-4 overflow-x-auto px-4">
+    // no side padding on the scroller: the sticky label column carries it, so nothing scrolls past on its left
+    <div className="-mx-4 overflow-x-auto">
       <table className="w-max min-w-full border-separate border-spacing-0 text-sm">
         <thead>
           <tr>
-            <th className="sticky left-0 z-10 w-28 bg-slate-50 dark:bg-slate-950" />
+            <th className="sticky left-0 z-10 w-32 border-r border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950" />
             {plots.map((p) => (
-              <th key={p.id} className="min-w-[9.5rem] max-w-[12rem] border-b border-slate-200 px-2 pb-2 text-left align-bottom dark:border-slate-800">
+              <th key={p.id} className="min-w-[9.5rem] max-w-[12rem] border-b border-slate-200 px-2 pb-2 text-left align-bottom last:pr-4 dark:border-slate-800">
                 <div className="flex items-start justify-between gap-1">
                   <Link to={`/plot/${p.id}`} onClick={previewClick(() => open(p.id))} className="text-base font-bold text-teal-700 underline-offset-2 hover:underline dark:text-teal-400">{p.unit}</Link>
                   <button onClick={() => toggle(p.id)} className="grid h-8 w-8 place-items-center rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label={`Remove ${p.unit} from comparison`}>
@@ -101,13 +106,13 @@ function ShortlistTable({ plots, weights, stampPct }: { plots: Plot[]; weights: 
             const isBest = r.best?.(plots)
             return (
               <tr key={r.label}>
-                <th scope="row" className="sticky left-0 z-10 w-28 border-b border-slate-200 bg-slate-50 py-2 pr-2 text-left align-top text-xs font-medium text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+                <th scope="row" className="sticky left-0 z-10 w-32 border-b border-r border-slate-200 bg-slate-50 py-2 pl-4 pr-2 text-left align-top text-xs font-medium text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
                   {r.label}
                 </th>
                 {plots.map((p) => (
                   <td
                     key={p.id}
-                    className={`max-w-[12rem] border-b border-slate-200 px-2 py-2 align-top dark:border-slate-800 ${isBest?.(p) ? 'bg-emerald-50 font-semibold dark:bg-emerald-500/10' : ''}`}
+                    className={`max-w-[12rem] border-b border-slate-200 px-2 py-2 align-top last:pr-4 dark:border-slate-800 ${isBest?.(p) ? 'bg-emerald-50 font-semibold dark:bg-emerald-500/10' : ''}`}
                   >
                     {r.get(p)}
                   </td>
@@ -117,7 +122,7 @@ function ShortlistTable({ plots, weights, stampPct }: { plots: Plot[]; weights: 
           })}
         </tbody>
       </table>
-      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Green cells mark the best value in each row. Swipe sideways to see more plots.</p>
+      <p className="mt-2 px-4 text-xs text-slate-500 dark:text-slate-400">Green cells mark the best value in each row. Swipe sideways to see more plots.</p>
     </div>
   )
 }

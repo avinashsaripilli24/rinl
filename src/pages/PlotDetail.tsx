@@ -4,6 +4,7 @@ import BidSimulator, { BidBar } from '../components/BidSimulator'
 import MoneyCalc from '../components/MoneyCalc'
 import NeighbourText from '../components/NeighbourText'
 import PlotNote from '../components/PlotNote'
+import PlotPhotos, { VisitToggle } from '../components/PlotPhotos'
 import { previewClick } from '../components/PlotCard'
 import SiteSketch from '../components/SiteSketch'
 import { Badge, Card, FacingBadge, Icon, Section, Stat, TagPill } from '../components/ui'
@@ -26,7 +27,7 @@ const VASTU_NOTE: Record<string, string> = {
 
 const SECTIONS = [
   { id: 'overview', label: 'Overview' },
-  { id: 'notes', label: 'Notes' },
+  { id: 'notes', label: 'Visit & notes' },
   { id: 'bid', label: 'Bid simulator' },
   { id: 'site', label: 'Site' },
   { id: 'vastu', label: 'Vastu' },
@@ -86,6 +87,7 @@ function Detail({ plot, onBack }: { plot: Plot; onBack: () => void }) {
             {blockLabel(plot.block)} · HB Colony, Maddilapalem · {plot.landUse}
           </p>
         </div>
+        <VisitToggle id={plot.id} unit={plot.unit} size="icon" />
         <button onClick={share} className="grid h-11 w-11 place-items-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="Share">
           <Icon name="share" />
         </button>
@@ -162,8 +164,13 @@ function Detail({ plot, onBack }: { plot: Plot; onBack: () => void }) {
         ) : null}
       </Card>
 
-      <Section id="notes" title="My notes">
-        <PlotNote id={plot.id} unit={plot.unit} />
+      <Section id="notes" title="My visit & notes">
+        <VisitToggle id={plot.id} unit={plot.unit} />
+        <div className="mt-3">
+          <PlotNote id={plot.id} unit={plot.unit} />
+        </div>
+        <h3 className="mb-2 mt-1 text-sm font-semibold">Site photos</h3>
+        <PlotPhotos id={plot.id} unit={plot.unit} />
       </Section>
 
       <BidSimulator plot={plot} plan={plan} />

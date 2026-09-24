@@ -6,6 +6,7 @@ import { blockLabel, num, rupees, short } from '../lib/format'
 import { ownFundsAt } from '../lib/loan'
 import type { Plot } from '../lib/types'
 import PlotNote from './PlotNote'
+import PlotPhotos, { VisitToggle } from './PlotPhotos'
 import SiteSketch from './SiteSketch'
 import { Badge, FacingBadge, Icon, Stat, TagPill } from './ui'
 
@@ -84,6 +85,7 @@ function Body({ plot, scroller, onClose, onFull, onPlot }: { plot: Plot; scrolle
             {blockLabel(plot.block)} · {plot.day === 1 ? '12 Oct' : '16 Oct'}
           </p>
         </div>
+        <VisitToggle id={plot.id} unit={plot.unit} size="icon" />
         <button
           onClick={() => toggle(plot.id)}
           className={`grid h-11 w-11 place-items-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 ${starred ? 'text-amber-500' : 'text-slate-500'}`}
@@ -140,6 +142,9 @@ function Body({ plot, scroller, onClose, onFull, onPlot }: { plot: Plot; scrolle
 
         <div className="mt-3">
           <PlotNote key={plot.id} id={plot.id} unit={plot.unit} compact />
+        </div>
+        <div className="mt-1">
+          <PlotPhotos key={plot.id} id={plot.id} unit={plot.unit} compact />
         </div>
 
         {plot.tags.length ? (

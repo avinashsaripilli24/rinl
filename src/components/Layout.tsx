@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { usePhotoCounts } from '../lib/photos'
 import { openSettings, useShortlist, useTheme } from '../hooks/useApp'
 import PlotPreview from './PlotPreview'
 import SettingsSheet from './SettingsSheet'
@@ -28,6 +29,7 @@ export function ThemeToggle() {
 
 export default function Layout() {
   const { ids } = useShortlist()
+  const photoCount = Object.values(usePhotoCounts()).reduce((a, b) => a + b, 0)
   return (
     <div className="mx-auto flex min-h-dvh max-w-3xl flex-col">
       <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-slate-200 bg-slate-50/90 px-4 py-1 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
@@ -55,6 +57,16 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
+        <NavLink
+          to="/gallery"
+          className={({ isActive }) =>
+            `relative grid h-11 w-11 place-items-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 ${isActive ? 'text-teal-600 dark:text-teal-400' : 'text-slate-600 dark:text-slate-300'}`
+          }
+          aria-label={`Site photo gallery${photoCount ? `, ${photoCount} photos` : ''}`}
+        >
+          <Icon name="image" />
+          {photoCount ? <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-teal-600 px-1 text-center text-[10px] font-bold leading-4 text-white">{photoCount}</span> : null}
+        </NavLink>
         <ThemeToggle />
         <button
           type="button"

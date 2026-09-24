@@ -1,8 +1,10 @@
 import type { MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { useEmi, useNotes, usePreview, useShortlist } from '../hooks/useApp'
+import { useEmi, useNotes, usePreview, useShortlist, useVisited } from '../hooks/useApp'
 import { blockLabel, num, short } from '../lib/format'
+import { usePhotoCounts } from '../lib/photos'
 import type { Plot } from '../lib/types'
+import { VisitToggle } from './PlotPhotos'
 import { Badge, FacingBadge, Icon } from './ui'
 
 export default function PlotCard({ plot, score, rank }: { plot: Plot; score?: number; rank?: number }) {
@@ -13,6 +15,8 @@ export default function PlotCard({ plot, score, rank }: { plot: Plot; score?: nu
   const capped = cappedFor(plot)
   const starred = has(plot.id)
   const note = useNotes().noteFor(plot.id)
+  const visited = useVisited().visitedAt(plot.id)
+  const photos = usePhotoCounts()[plot.id] ?? 0
   const good = plot.tags.filter((t) => t.kind === 'good' && !['corner', 'open3', 'frontback', 'road60', 'road40'].includes(t.key))
   const bad = plot.tags.filter((t) => t.kind === 'bad')
   return (
@@ -38,6 +42,8 @@ export default function PlotCard({ plot, score, rank }: { plot: Plot; score?: nu
           <Badge tone={plot.day === 1 ? 'sky' : 'amber'}>{plot.day === 1 ? '12 Oct' : '16 Oct'}</Badge>
           {good.length ? <Badge tone="emerald">＋{good.length} feature{good.length > 1 ? 's' : ''}</Badge> : null}
           {bad.length ? <Badge tone="rose">−{bad.length} concern{bad.length > 1 ? 's' : ''}</Badge> : null}
+          {visited ? <Badge tone="emerald"><Icon name="check" className="h-3 w-3" />Visited</Badge> : null}
+          {photos ? <Badge><Icon name="camera" className="h-3 w-3" />{photos}</Badge> : null}
         </div>
         {note ? (
           <p className="mt-2 flex gap-1.5 text-sm text-slate-600 dark:text-slate-300">
@@ -56,6 +62,7 @@ export default function PlotCard({ plot, score, rank }: { plot: Plot; score?: nu
         >
           <Icon name="star" solid={starred} />
         </button>
+        <VisitToggle id={plot.id} unit={plot.unit} size="icon" />
         {score != null ? (
           <span className="text-center text-xs font-bold tabular-nums text-teal-700 dark:text-teal-300" title="Overall score (Compare weights)">
             {score}

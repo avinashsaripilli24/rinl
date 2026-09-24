@@ -4,6 +4,7 @@ import { HashRouter, Route, Routes, useLocation } from 'react-router-dom'
 import Layout from './components/Layout'
 import './index.css'
 import Compare from './pages/Compare'
+import Gallery from './pages/Gallery'
 import Info from './pages/Info'
 import Insights from './pages/Insights'
 import PlotDetail from './pages/PlotDetail'
@@ -32,6 +33,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="top" element={<TopPicks />} />
           <Route path="compare" element={<Compare />} />
           <Route path="insights" element={<Insights />} />
+          <Route path="gallery" element={<Gallery />} />
           <Route path="info" element={<Info />} />
           <Route path="doc/:slug" element={<Suspense fallback={null}><DocViewer /></Suspense>} />
           <Route path="*" element={<Plots />} />

@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import FilterSheet from '../components/FilterSheet'
 import PlotCard from '../components/PlotCard'
 import { Chip, Icon, LoadMore } from '../components/ui'
-import { useShortlist, useWeights } from '../hooks/useApp'
+import { useShortlist, useVisited, useWeights } from '../hooks/useApp'
 import { useInfinite } from '../hooks/useInfinite'
 import { PLOTS, score } from '../lib/derive'
 import { SORTS, activeCount, applyFilters, fromParams, nearbyBlocks, toParams, type Filters } from '../lib/search'
@@ -44,6 +44,7 @@ export default function Plots() {
   const [sheet, setSheet] = useState(false)
   const { weights } = useWeights()
   const { ids: starredIds } = useShortlist()
+  const { visited } = useVisited()
   const navigate = useNavigate()
 
   // debounce typing into the URL
@@ -56,7 +57,7 @@ export default function Plots() {
     setQ(filters.q)
   }, [filters.q])
 
-  const results = useMemo(() => applyFilters(PLOTS, filters, weights, starredIds), [filters, weights, starredIds])
+  const results = useMemo(() => applyFilters(PLOTS, filters, weights, { starred: starredIds, visited }), [filters, weights, starredIds, visited])
   const { limit, sentinel, more } = useInfinite(results.length, PAGE, sp.toString())
 
   const n = activeCount(filters)
@@ -105,6 +106,10 @@ export default function Plots() {
           <Chip active={filters.starred} onClick={() => quick({ starred: !filters.starred })}>
             <Icon name="star" solid={filters.starred} className="h-4 w-4" /> Starred{starredIds.length ? ` (${starredIds.length})` : ''}
           </Chip>
+          <Chip active={filters.visit === 'yes'} onClick={() => quick({ visit: filters.visit === 'yes' ? '' : 'yes' })}>
+            <Icon name="checkCircle" className="h-4 w-4" /> Visited
+          </Chip>
+          <Chip active={filters.visit === 'no'} onClick={() => quick({ visit: filters.visit === 'no' ? '' : 'no' })}>Not visited</Chip>
           <Chip active={filters.day === '1'} onClick={() => quick({ day: filters.day === '1' ? '' : '1' })}>12 Oct</Chip>
           <Chip active={filters.day === '2'} onClick={() => quick({ day: filters.day === '2' ? '' : '2' })}>16 Oct</Chip>
           <Chip active={filters.corner} onClick={() => quick({ corner: !filters.corner })}>Corner</Chip>
@@ -182,7 +187,7 @@ export default function Plots() {
 
 const clearAll: Partial<Filters> = {
   day: '', blocks: [], types: [], facing: [], corner: false, minRoad: 0, minSides: 0,
-  areaMin: null, areaMax: null, priceMin: null, priceMax: null, rateMin: null, rateMax: null, good: false, noBad: false, starred: false,
+  areaMin: null, areaMax: null, priceMin: null, priceMax: null, rateMin: null, rateMax: null, good: false, noBad: false, starred: false, visit: '',
 }
 
 function EmptyState({ q, filtered, onPick, onReset }: { q: string; filtered: boolean; onPick: (v: string) => void; onReset: () => void }) {
