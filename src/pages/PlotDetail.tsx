@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import BidSimulator, { BidBar } from '../components/BidSimulator'
 import MoneyCalc from '../components/MoneyCalc'
 import NeighbourText from '../components/NeighbourText'
+import PlotNote from '../components/PlotNote'
 import { previewClick } from '../components/PlotCard'
 import SiteSketch from '../components/SiteSketch'
 import { Badge, Card, FacingBadge, Icon, Section, Stat, TagPill } from '../components/ui'
@@ -25,6 +26,7 @@ const VASTU_NOTE: Record<string, string> = {
 
 const SECTIONS = [
   { id: 'overview', label: 'Overview' },
+  { id: 'notes', label: 'Notes' },
   { id: 'bid', label: 'Bid simulator' },
   { id: 'site', label: 'Site' },
   { id: 'vastu', label: 'Vastu' },
@@ -159,6 +161,10 @@ function Detail({ plot, onBack }: { plot: Plot; onBack: () => void }) {
           </p>
         ) : null}
       </Card>
+
+      <Section id="notes" title="My notes">
+        <PlotNote id={plot.id} unit={plot.unit} />
+      </Section>
 
       <BidSimulator plot={plot} plan={plan} />
 

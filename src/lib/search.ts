@@ -18,6 +18,8 @@ export interface Filters {
   rateMax: number | null
   good: boolean
   noBad: boolean
+  /** only plots on the shortlist */
+  starred: boolean
   sort: SortKey
 }
 
@@ -37,7 +39,7 @@ export const SORTS: { key: SortKey; label: string }[] = [
 export const EMPTY: Filters = {
   q: '', day: '', blocks: [], types: [], facing: [], corner: false, minRoad: 0, minSides: 0,
   areaMin: null, areaMax: null, priceMin: null, priceMax: null, rateMin: null, rateMax: null,
-  good: false, noBad: false, sort: 'score',
+  good: false, noBad: false, starred: false, sort: 'score',
 }
 
 const list = (v: string | null) => (v ? v.split(',').filter(Boolean) : [])
@@ -58,6 +60,7 @@ export function fromParams(sp: URLSearchParams): Filters {
     rateMin: n(sp.get('rateMin')), rateMax: n(sp.get('rateMax')),
     good: sp.get('good') === '1',
     noBad: sp.get('noBad') === '1',
+    starred: sp.get('starred') === '1',
     sort: (sp.get('sort') as SortKey) || 'score',
   }
 }
@@ -71,7 +74,7 @@ export function toParams(f: Filters): URLSearchParams {
   set('q', f.q); set('day', f.day); set('blocks', f.blocks); set('types', f.types); set('facing', f.facing)
   set('corner', f.corner); set('minRoad', f.minRoad); set('minSides', f.minSides)
   set('areaMin', f.areaMin); set('areaMax', f.areaMax); set('priceMin', f.priceMin); set('priceMax', f.priceMax)
-  set('rateMin', f.rateMin); set('rateMax', f.rateMax); set('good', f.good); set('noBad', f.noBad)
+  set('rateMin', f.rateMin); set('rateMax', f.rateMax); set('good', f.good); set('noBad', f.noBad); set('starred', f.starred)
   if (f.sort !== 'score') sp.set('sort', f.sort)
   return sp
 }
@@ -91,6 +94,7 @@ export function activeCount(f: Filters): number {
   if (f.rateMin != null || f.rateMax != null) c++
   if (f.good) c++
   if (f.noBad) c++
+  if (f.starred) c++
   return c
 }
 
@@ -136,7 +140,7 @@ export function nearbyBlocks(q: string): string[] {
     .slice(0, 4)
 }
 
-export function applyFilters(plots: Plot[], f: Filters, w: Weights): Plot[] {
+export function applyFilters(plots: Plot[], f: Filters, w: Weights, starredIds: string[] = []): Plot[] {
   const out = plots.filter((p) => {
     if (!matches(p, f.q)) return false
     if (f.day && String(p.day) !== f.day) return false
@@ -154,6 +158,7 @@ export function applyFilters(plots: Plot[], f: Filters, w: Weights): Plot[] {
     if (f.rateMax != null && p.rate > f.rateMax) return false
     if (f.good && !p.tags.some((t) => t.kind === 'good' && t.key !== 'corner')) return false
     if (f.noBad && p.tags.some((t) => t.kind === 'bad')) return false
+    if (f.starred && !starredIds.includes(p.id)) return false
     return true
   })
   return sortPlots(out, f.sort, w)

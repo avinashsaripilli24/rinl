@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import FilterSheet from '../components/FilterSheet'
 import PlotCard from '../components/PlotCard'
 import { Chip, Icon, LoadMore } from '../components/ui'
-import { useWeights } from '../hooks/useApp'
+import { useShortlist, useWeights } from '../hooks/useApp'
 import { useInfinite } from '../hooks/useInfinite'
 import { PLOTS, score } from '../lib/derive'
 import { SORTS, activeCount, applyFilters, fromParams, nearbyBlocks, toParams, type Filters } from '../lib/search'
@@ -43,6 +43,7 @@ export default function Plots() {
   const [q, setQ] = useState(filters.q)
   const [sheet, setSheet] = useState(false)
   const { weights } = useWeights()
+  const { ids: starredIds } = useShortlist()
   const navigate = useNavigate()
 
   // debounce typing into the URL
@@ -55,7 +56,7 @@ export default function Plots() {
     setQ(filters.q)
   }, [filters.q])
 
-  const results = useMemo(() => applyFilters(PLOTS, filters, weights), [filters, weights])
+  const results = useMemo(() => applyFilters(PLOTS, filters, weights, starredIds), [filters, weights, starredIds])
   const { limit, sentinel, more } = useInfinite(results.length, PAGE, sp.toString())
 
   const n = activeCount(filters)
@@ -101,6 +102,9 @@ export default function Plots() {
         </form>
 
         <div className="no-scrollbar -mx-4 mt-2 flex gap-2 overflow-x-auto px-4">
+          <Chip active={filters.starred} onClick={() => quick({ starred: !filters.starred })}>
+            <Icon name="star" solid={filters.starred} className="h-4 w-4" /> Starred{starredIds.length ? ` (${starredIds.length})` : ''}
+          </Chip>
           <Chip active={filters.day === '1'} onClick={() => quick({ day: filters.day === '1' ? '' : '1' })}>12 Oct</Chip>
           <Chip active={filters.day === '2'} onClick={() => quick({ day: filters.day === '2' ? '' : '2' })}>16 Oct</Chip>
           <Chip active={filters.corner} onClick={() => quick({ corner: !filters.corner })}>Corner</Chip>
@@ -152,6 +156,12 @@ export default function Plots() {
         <Suspense fallback={<div className="mt-2 grid h-80 place-items-center text-sm text-slate-500">Loading map…</div>}>
           <PlotsMap plots={results} focus={focus} onFocus={setFocus} layer={layer} onLayer={setLayer} />
         </Suspense>
+      ) : results.length === 0 && filters.starred && !starredIds.length ? (
+        <div className="mt-8 rounded-2xl border border-dashed border-slate-300 p-6 text-center dark:border-slate-700">
+          <p className="font-semibold">You haven't starred any plots yet.</p>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Tap ☆ on a plot to star it.</p>
+          <button type="button" onClick={() => quick({ starred: false })} className="mt-4 text-sm font-semibold text-teal-700 underline dark:text-teal-400">Show all plots</button>
+        </div>
       ) : results.length === 0 ? (
         <EmptyState q={filters.q} filtered={n > 0} onPick={(v) => { setQ(v); setFilters({ ...filters, q: v }) }} onReset={() => setFilters({ ...filters, q: '', ...clearAll })} />
       ) : (
@@ -172,7 +182,7 @@ export default function Plots() {
 
 const clearAll: Partial<Filters> = {
   day: '', blocks: [], types: [], facing: [], corner: false, minRoad: 0, minSides: 0,
-  areaMin: null, areaMax: null, priceMin: null, priceMax: null, rateMin: null, rateMax: null, good: false, noBad: false,
+  areaMin: null, areaMax: null, priceMin: null, priceMax: null, rateMin: null, rateMax: null, good: false, noBad: false, starred: false,
 }
 
 function EmptyState({ q, filtered, onPick, onReset }: { q: string; filtered: boolean; onPick: (v: string) => void; onReset: () => void }) {

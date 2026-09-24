@@ -5,6 +5,7 @@ import { DIR_NAME, PLOT_BY_ID, blockAvgRate, neighbours, score } from '../lib/de
 import { blockLabel, num, rupees, short } from '../lib/format'
 import { ownFundsAt } from '../lib/loan'
 import type { Plot } from '../lib/types'
+import PlotNote from './PlotNote'
 import SiteSketch from './SiteSketch'
 import { Badge, FacingBadge, Icon, Stat, TagPill } from './ui'
 
@@ -135,6 +136,10 @@ function Body({ plot, scroller, onClose, onFull, onPlot }: { plot: Plot; scrolle
               <span className="text-rose-700 dark:text-rose-400">Needs {short(lp.ownFunds - profile.savings)} more than your savings at reserve.</span>
             )}
           </p>
+        </div>
+
+        <div className="mt-3">
+          <PlotNote key={plot.id} id={plot.id} unit={plot.unit} compact />
         </div>
 
         {plot.tags.length ? (

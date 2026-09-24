@@ -1,6 +1,6 @@
 import type { MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { useEmi, usePreview, useShortlist } from '../hooks/useApp'
+import { useEmi, useNotes, usePreview, useShortlist } from '../hooks/useApp'
 import { blockLabel, num, short } from '../lib/format'
 import type { Plot } from '../lib/types'
 import { Badge, FacingBadge, Icon } from './ui'
@@ -12,6 +12,7 @@ export default function PlotCard({ plot, score, rank }: { plot: Plot; score?: nu
   const emi = emiFor(plot)
   const capped = cappedFor(plot)
   const starred = has(plot.id)
+  const note = useNotes().noteFor(plot.id)
   const good = plot.tags.filter((t) => t.kind === 'good' && !['corner', 'open3', 'frontback', 'road60', 'road40'].includes(t.key))
   const bad = plot.tags.filter((t) => t.kind === 'bad')
   return (
@@ -38,6 +39,12 @@ export default function PlotCard({ plot, score, rank }: { plot: Plot; score?: nu
           {good.length ? <Badge tone="emerald">＋{good.length} feature{good.length > 1 ? 's' : ''}</Badge> : null}
           {bad.length ? <Badge tone="rose">−{bad.length} concern{bad.length > 1 ? 's' : ''}</Badge> : null}
         </div>
+        {note ? (
+          <p className="mt-2 flex gap-1.5 text-sm text-slate-600 dark:text-slate-300">
+            <Icon name="note" className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+            <span className="line-clamp-2 whitespace-pre-line">{note}</span>
+          </p>
+        ) : null}
       </Link>
       <div className="absolute right-2 top-2 flex flex-col items-center">
         <button

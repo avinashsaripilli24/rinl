@@ -13,6 +13,29 @@ export function useShortlist() {
   return { ids, has: (id: string) => ids.includes(id), toggle, clear }
 }
 
+/** Free-text notes per plot id. Empty notes are dropped. */
+export function useNotes() {
+  const [notes, setNotes] = useStored<Record<string, string>>('notes', {})
+  const setNote = useCallback(
+    (id: string, text: string) =>
+      setNotes((n) => {
+        const next = { ...n }
+        if (text.trim()) next[id] = text
+        else delete next[id]
+        return next
+      }),
+    [setNotes],
+  )
+  return { notes, noteFor: (id: string) => notes[id] ?? '', setNote }
+}
+
+/** Starred plots left out of the side-by-side table. Stored as exclusions so newly starred plots are compared by default. */
+export function useCompareExclude() {
+  const [ex, setEx] = useStored<string[]>('compareExclude', [])
+  const toggle = useCallback((id: string) => setEx((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id])), [setEx])
+  return { excluded: ex, isSelected: (id: string) => !ex.includes(id), toggle, setExcluded: setEx }
+}
+
 export function useWeights() {
   const [w, setW] = useStored<Weights>('weights', DEFAULT_WEIGHTS)
   return { weights: { ...DEFAULT_WEIGHTS, ...w }, setWeights: setW, reset: () => setW(DEFAULT_WEIGHTS) }

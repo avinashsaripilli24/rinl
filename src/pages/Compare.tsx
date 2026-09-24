@@ -1,9 +1,10 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import PlotCard, { previewClick } from '../components/PlotCard'
+import PlotNote from '../components/PlotNote'
 import { WEIGHT_LABELS } from '../components/SettingsSheet'
 import { Chip, FacingBadge, Icon, LoadMore } from '../components/ui'
-import { openSettings, useLoanProfile, usePreview, useShortlist, useStampPct, useWeights } from '../hooks/useApp'
+import { openSettings, useCompareExclude, useLoanProfile, useNotes, usePreview, useShortlist, useStampPct, useWeights } from '../hooks/useApp'
 import { useInfinite } from '../hooks/useInfinite'
 import { PLOTS, PLOT_BY_ID, score } from '../lib/derive'
 import { blockLabel, num, short } from '../lib/format'
@@ -43,13 +44,15 @@ const bestBy = (fn: (p: Plot) => number, dir: 'max' | 'min') => (ps: Plot[]) => 
 }
 
 function ShortlistTable({ plots, weights, stampPct }: { plots: Plot[]; weights: Weights; stampPct: number }) {
-  const { toggle } = useShortlist()
+  const { toggle } = useCompareExclude()
+  const { noteFor } = useNotes()
   const { open } = usePreview()
   const { profile } = useLoanProfile()
   const loan = (p: Plot) => ownFundsAt(p, p.rate, stampPct, profile).lp
   const cash = (p: Plot) => p.reservePrice * (1 + stampPct / 100 + 0.001 * 1.18)
   const rows: Row[] = [
     { label: 'Score', get: (p) => <b className="text-teal-700 dark:text-teal-300">{score(p, weights)}</b>, best: bestBy((p) => score(p, weights), 'max') },
+    { label: 'My notes', get: (p) => <span className="whitespace-pre-line text-slate-700 dark:text-slate-300">{noteFor(p.id) || <span className="text-slate-400">–</span>}</span> },
     { label: 'Facing (vastu #)', get: (p) => <FacingBadge facing={p.facing} rank={p.vastuRank <= 8 ? p.vastuRank : undefined} />, best: bestBy((p) => -p.vastuRank, 'max') },
     { label: 'Road sides', get: (p) => (p.roadSides >= 3 ? '3-side open' : p.isCorner ? 'Corner' : p.roadSides === 2 ? 'Front & back roads' : '1 side'), best: bestBy((p) => p.roadSides, 'max') },
     { label: 'Roads', get: (p) => p.roads.map((r) => `${r.side}: ${r.width ? r.width + '′' : r.label}`).join(', ') },
@@ -84,7 +87,7 @@ function ShortlistTable({ plots, weights, stampPct }: { plots: Plot[]; weights: 
               <th key={p.id} className="min-w-[9.5rem] max-w-[12rem] border-b border-slate-200 px-2 pb-2 text-left align-bottom dark:border-slate-800">
                 <div className="flex items-start justify-between gap-1">
                   <Link to={`/plot/${p.id}`} onClick={previewClick(() => open(p.id))} className="text-base font-bold text-teal-700 underline-offset-2 hover:underline dark:text-teal-400">{p.unit}</Link>
-                  <button onClick={() => toggle(p.id)} className="grid h-8 w-8 place-items-center rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label={`Remove ${p.unit}`}>
+                  <button onClick={() => toggle(p.id)} className="grid h-8 w-8 place-items-center rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label={`Remove ${p.unit} from comparison`}>
                     <Icon name="x" className="h-4 w-4" />
                   </button>
                 </div>
@@ -125,6 +128,113 @@ const list = (p: Plot, kind: 'good' | 'bad') =>
     .map((t) => t.label)
     .join('; ')
 
+function StarredPanel({ plots, weights, stampPct, onClear }: { plots: Plot[]; weights: Weights; stampPct: number; onClear: () => void }) {
+  const { isSelected, toggle, setExcluded } = useCompareExclude()
+  const [sp, setSp] = useSearchParams()
+  const [noteOpen, setNoteOpen] = useState<string | null>(null)
+  const { noteFor } = useNotes()
+  const sorted = useMemo(() => [...plots].sort((a, b) => score(b, weights) - score(a, weights)), [plots, weights])
+  const selected = sorted.filter((p) => isSelected(p.id))
+  // the table is its own history entry so the back gesture returns to the list
+  const showTable = sp.get('view') === 'table' && selected.length > 0
+  const setTable = (on: boolean) => {
+    if (on) setSp({ view: 'table' })
+    else if ((history.state?.idx ?? 0) > 0) history.back()
+    else setSp({}, { replace: true })
+  }
+
+  if (!plots.length) {
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center dark:border-slate-700">
+        <Icon name="star" className="mx-auto h-8 w-8 text-amber-500" />
+        <p className="mt-2 font-semibold">No starred plots yet</p>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Tap ☆ on any plot to star it. Your starred plots, with your notes, show up here and you can compare them side by side.</p>
+        <Link to="/" className="mt-4 inline-flex h-11 items-center rounded-xl bg-teal-600 px-4 font-semibold text-white">Browse plots</Link>
+      </div>
+    )
+  }
+
+  if (showTable) {
+    return (
+      <>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setTable(false)} className="-ml-2 grid h-11 w-11 place-items-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Back to starred plots">
+            <Icon name="back" />
+          </button>
+          <h2 className="flex-1 font-semibold">Comparing {selected.length} of {plots.length} starred</h2>
+        </div>
+        <ShortlistTable plots={selected} weights={weights} stampPct={stampPct} />
+      </>
+    )
+  }
+
+  const allSelected = selected.length === sorted.length
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-semibold">Pick plots to compare</h2>
+        <div className="flex gap-3 text-sm font-semibold">
+          <button onClick={() => setExcluded(allSelected ? sorted.map((p) => p.id) : [])} className="h-9 text-teal-700 dark:text-teal-400">
+            {allSelected ? 'Select none' : 'Select all'}
+          </button>
+          <button onClick={() => confirm(`Unstar all ${plots.length} plots? Your notes are kept.`) && onClear()} className="h-9 text-rose-600 dark:text-rose-400">
+            Unstar all
+          </button>
+        </div>
+      </div>
+      <ul className="grid gap-3 sm:grid-cols-2">
+        {sorted.map((p) => {
+          const on = isSelected(p.id)
+          const note = noteFor(p.id)
+          return (
+            <li key={p.id} className={`rounded-3xl p-1.5 ${on ? 'bg-teal-50 ring-2 ring-teal-500 dark:bg-teal-500/10' : 'ring-1 ring-slate-200 dark:ring-slate-800'}`}>
+              <div className="flex items-center gap-2 px-1 pb-1 text-sm font-medium">
+                <label className="flex h-9 flex-1 cursor-pointer items-center gap-2">
+                  <input type="checkbox" checked={on} onChange={() => toggle(p.id)} className="h-5 w-5 accent-teal-600" />
+                  {on ? 'In comparison' : 'Add to comparison'}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setNoteOpen(noteOpen === p.id ? null : p.id)}
+                  className="flex h-9 items-center gap-1 rounded-lg px-2 text-teal-700 hover:bg-slate-100 dark:text-teal-400 dark:hover:bg-slate-800"
+                  aria-expanded={noteOpen === p.id}
+                >
+                  <Icon name="note" className="h-4 w-4" />
+                  {noteOpen === p.id ? 'Done' : note ? 'Edit note' : 'Add note'}
+                </button>
+              </div>
+              <PlotCard plot={p} score={score(p, weights)} />
+              {noteOpen === p.id ? (
+                <div className="px-1 pt-2">
+                  <PlotNote id={p.id} unit={p.unit} />
+                </div>
+              ) : null}
+            </li>
+          )
+        })}
+      </ul>
+      {/* room for the floating compare bar */}
+      <div className="h-16" aria-hidden />
+      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-20 px-4 pb-3 md:bottom-0">
+        <div className="mx-auto flex max-w-3xl items-center gap-3 rounded-2xl border border-slate-200 bg-white/95 p-2 pl-4 shadow-lg backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+          <span className="flex-1 text-sm">
+            <b>{selected.length}</b> of {sorted.length} selected
+            {selected.length === 1 ? <span className="block text-xs text-slate-500 dark:text-slate-400">Pick at least one more</span> : null}
+          </span>
+          <button
+            type="button"
+            disabled={selected.length < 2}
+            onClick={() => setTable(true)}
+            className="flex h-11 items-center gap-2 rounded-xl bg-teal-600 px-4 font-semibold text-white hover:bg-teal-700 disabled:opacity-40"
+          >
+            <Icon name="columns" className="h-4 w-4" /> Compare side by side
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
 export default function Compare() {
   const { ids, clear } = useShortlist()
   const { weights } = useWeights()
@@ -148,7 +258,7 @@ export default function Compare() {
       <div className="grid grid-cols-2 rounded-xl bg-slate-200 p-1 dark:bg-slate-800" role="tablist">
         {(
           [
-            ['shortlist', `Shortlist (${shortlisted.length})`],
+            ['shortlist', `Starred (${shortlisted.length})`],
             ['rank', 'Rank all plots'],
           ] as const
         ).map(([k, l]) => (
@@ -167,22 +277,7 @@ export default function Compare() {
       <WeightsPanel />
 
       {mode === 'shortlist' ? (
-        shortlisted.length ? (
-          <>
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">Side by side</h2>
-              <button onClick={clear} className="h-9 text-sm font-semibold text-rose-600 dark:text-rose-400">Clear shortlist</button>
-            </div>
-            <ShortlistTable plots={[...shortlisted].sort((a, b) => score(b, weights) - score(a, weights))} weights={weights} stampPct={stampPct} />
-          </>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center dark:border-slate-700">
-            <Icon name="star" className="mx-auto h-8 w-8 text-amber-500" />
-            <p className="mt-2 font-semibold">Your shortlist is empty</p>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Tap ☆ on any plot to add it, then compare the plots here side by side.</p>
-            <Link to="/" className="mt-4 inline-flex h-11 items-center rounded-xl bg-teal-600 px-4 font-semibold text-white">Browse plots</Link>
-          </div>
-        )
+        <StarredPanel plots={shortlisted} weights={weights} stampPct={stampPct} onClear={clear} />
       ) : (
         <>
           <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
